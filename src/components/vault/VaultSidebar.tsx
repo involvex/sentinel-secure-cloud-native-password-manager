@@ -1,5 +1,5 @@
 import React from "react";
-import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Trash2, Plus, Zap, Folder } from "lucide-react";
+import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Trash2, Plus, Zap, Folder, Hash } from "lucide-react";
 import { useVaultStore } from "@/lib/store";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
@@ -18,9 +18,12 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { GeneratorTool } from "./GeneratorTool";
 import { CreateItemDialog } from "./CreateItemDialog";
+import { Badge } from "@/components/ui/badge";
 export function VaultSidebar() {
   const activeFilter = useVaultStore(s => s.activeFilter);
+  const activeTag = useVaultStore(s => s.activeTag);
   const setActiveFilter = useVaultStore(s => s.setActiveFilter);
+  const setActiveTag = useVaultStore(s => s.setActiveTag);
   const setCreateDialogOpen = useVaultStore(s => s.setCreateDialogOpen);
   const { data } = useQuery({
     queryKey: ['vault-items'],
@@ -32,7 +35,16 @@ export function VaultSidebar() {
     { id: 'card', label: 'Cards', icon: CreditCard },
     { id: 'note', label: 'Secure Notes', icon: FileText },
   ];
-  const folders = Array.from(new Set(data?.items.map(i => i.folder).filter(Boolean))) as string[];
+  const items = data?.items ?? [];
+  const folders = Array.from(new Set(items.map(i => i.folder).filter(Boolean))) as string[];
+  // Dynamic Tag discovery
+  const tagCounts = items.reduce((acc, item) => {
+    (item.tags || []).forEach(tag => {
+      acc[tag] = (acc[tag] || 0) + 1;
+    });
+    return acc;
+  }, {} as Record<string, number>);
+  const tags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
   return (
     <>
       <Sidebar variant="inset" className="border-r border-border/50">
@@ -60,8 +72,8 @@ export function VaultSidebar() {
               {categories.map((cat) => (
                 <SidebarMenuItem key={cat.id}>
                   <SidebarMenuButton
-                    isActive={activeFilter === cat.id}
-                    onClick={() => setActiveFilter(cat.id as any)}
+                    isActive={activeFilter === cat.id && !activeTag}
+                    onClick={() => setActiveFilter(cat.id)}
                     className="h-10 px-3 transition-colors"
                   >
                     <cat.icon className="w-4 h-4" />
@@ -78,12 +90,34 @@ export function VaultSidebar() {
                 {folders.map((folder) => (
                   <SidebarMenuItem key={folder}>
                     <SidebarMenuButton
-                      isActive={activeFilter === folder}
-                      onClick={() => setActiveFilter(folder as any)}
+                      isActive={activeFilter === folder && !activeTag}
+                      onClick={() => setActiveFilter(folder)}
                       className="h-10 px-3 transition-colors"
                     >
                       <Folder className="w-4 h-4" />
                       <span>{folder}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          )}
+          {tags.length > 0 && (
+            <SidebarGroup>
+              <SidebarGroupLabel className="px-3">Tags</SidebarGroupLabel>
+              <SidebarMenu>
+                {tags.map(([tag, count]) => (
+                  <SidebarMenuItem key={tag}>
+                    <SidebarMenuButton
+                      isActive={activeTag === tag}
+                      onClick={() => setActiveTag(tag)}
+                      className="h-10 px-3 transition-colors group"
+                    >
+                      <Hash className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
+                      <span className="flex-1 truncate">{tag}</span>
+                      <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 h-4 min-w-[1.25rem] justify-center opacity-70">
+                        {count}
+                      </Badge>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
