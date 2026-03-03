@@ -82,7 +82,8 @@ function runSetupCommands() {
     "bun add @zxcvbn-ts/language-en@^3.0.2",
     "bun add otplib@^13.0.1",
     "bun add @tanstack/react-virtual@^3.1.1",
-    "bun add otplib @tanstack/react-virtual"
+    "bun add otplib @tanstack/react-virtual",
+    "bun add @otplib/preset-default"
 ];
     
     if (commands.length === 0) {
