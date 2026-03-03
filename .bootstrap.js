@@ -77,22 +77,7 @@ function updateWranglerJsonc() {
 }
 
 function runSetupCommands() {
-    const commands = [
-    "bun add @zxcvbn-ts/core@^3.0.2",
-    "bun add @zxcvbn-ts/language-en@^3.0.2",
-    "bun add otplib@^13.0.1",
-    "bun add @tanstack/react-virtual@^3.1.1",
-    "bun add otplib @tanstack/react-virtual",
-    "bun add @otplib/preset-default @tanstack/react-virtual",
-    "bun add @otplib/preset-default@^12.0.1",
-    "bun add @simplewebauthn/browser@^9.0.0",
-    "bun add @radix-ui/react-label",
-    "bun add lucide-react",
-    "bun add @zxcvbn-ts/core @zxcvbn-ts/language-common @zxcvbn-ts/language-en",
-    "bun add html5-qrcode qrcode.react",
-    "bun install @zxcvbn-ts/language-common",
-    "bun add @zxcvbn-ts/language-common @zxcvbn-ts/language-en @zxcvbn-ts/core"
-];
+    const commands = [];
     
     if (commands.length === 0) {
         console.log('⊘ No setup commands to run');
