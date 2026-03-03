@@ -11,6 +11,11 @@ import { HomePage } from '@/pages/HomePage'
 import { Dashboard } from '@/pages/Dashboard'
 import { LoginPage } from '@/pages/LoginPage'
 import { AuthGuard } from '@/components/AuthGuard'
+declare global {
+  interface Window {
+    __REACT_ROOT__?: Root;
+  }
+}
 enableMapSet();
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,16 +46,16 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
   }
 ]);
-// Singleton Root Management to prevent runtime createRoot errors
 const container = document.getElementById('root');
 if (!container) throw new Error("Root container not found");
 let root: Root;
-// @ts-ignore - attaching to window for singleton access during Fast Refresh
+// @ts-expect-error - attaching to window for singleton access during Fast Refresh
 if (window.__REACT_ROOT__) {
+  // @ts-expect-error
   root = window.__REACT_ROOT__;
 } else {
   root = createRoot(container);
-  // @ts-ignore
+  // @ts-expect-error
   window.__REACT_ROOT__ = root;
 }
 root.render(

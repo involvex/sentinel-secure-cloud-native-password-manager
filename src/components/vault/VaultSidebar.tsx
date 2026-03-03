@@ -1,5 +1,5 @@
 import React from "react";
-import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Plus, Zap, Folder, Hash, UserCircle, Share2, LogOut } from "lucide-react";
+import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Plus, Zap, Folder, LogOut, Share2, UserCircle, Trash2 } from "lucide-react";
 import { useVaultStore } from "@/lib/store";
 import { useAuthStore } from "@/lib/auth-store";
 import { useQuery } from "@tanstack/react-query";
@@ -21,7 +21,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { GeneratorTool } from "./GeneratorTool";
 import { CreateItemDialog } from "./CreateItemDialog";
 import { ImportExportDialog } from "./ImportExportDialog";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -30,7 +29,6 @@ export function VaultSidebar() {
   const activeFilter = useVaultStore(s => s.activeFilter);
   const activeTag = useVaultStore(s => s.activeTag);
   const setActiveFilter = useVaultStore(s => s.setActiveFilter);
-  const setActiveTag = useVaultStore(s => s.setActiveTag);
   const setCreateDialogOpen = useVaultStore(s => s.setCreateDialogOpen);
   const setImportExportOpen = useVaultStore(s => s.setImportExportOpen);
   const user = useAuthStore(s => s.user);
@@ -47,13 +45,6 @@ export function VaultSidebar() {
   ];
   const items = data?.items ?? [];
   const folders = Array.from(new Set(items.map(i => i.folder).filter(Boolean))) as string[];
-  const tagCounts = items.reduce((acc, item) => {
-    (item.tags || []).forEach(tag => {
-      acc[tag] = (acc[tag] || 0) + 1;
-    });
-    return acc;
-  }, {} as Record<string, number>);
-  const tags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
   const handleLogout = () => {
     clearAuth();
     navigate('/');
@@ -90,7 +81,7 @@ export function VaultSidebar() {
                       onClick={() => setActiveFilter(cat.id)}
                       className={cn(
                         "h-10 px-3 transition-colors",
-                        activeFilter === cat.id && !activeTag && "bg-accent/50 text-foreground font-semibold"
+                        activeFilter === cat.id && !activeTag && "bg-primary/10 text-primary font-bold"
                       )}
                     >
                       <cat.icon className="w-4 h-4" />
@@ -109,7 +100,10 @@ export function VaultSidebar() {
                       <SidebarMenuButton
                         isActive={activeFilter === folder && !activeTag}
                         onClick={() => setActiveFilter(folder)}
-                        className={cn("h-10 px-3 transition-colors")}
+                        className={cn(
+                          "h-10 px-3 transition-colors",
+                          activeFilter === folder && "bg-accent/50 text-foreground font-semibold"
+                        )}
                       >
                         <Folder className="w-4 h-4" />
                         <span>{folder}</span>
@@ -132,10 +126,26 @@ export function VaultSidebar() {
                   <SidebarMenuButton
                     isActive={activeFilter === 'favorites'}
                     onClick={() => setActiveFilter('favorites')}
-                    className={cn("h-10 px-3")}
+                    className={cn(
+                      "h-10 px-3",
+                      activeFilter === 'favorites' && "bg-orange-500/10 text-orange-600 font-bold"
+                    )}
                   >
                     <Star className="w-4 h-4" />
                     <span>Favorites</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={activeFilter === 'trash'}
+                    onClick={() => setActiveFilter('trash')}
+                    className={cn(
+                      "h-10 px-3",
+                      activeFilter === 'trash' && "bg-destructive/10 text-destructive font-bold"
+                    )}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Trash</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Camera, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Camera, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 interface QRScannerProps {
   isOpen: boolean;
@@ -14,38 +14,7 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
   const [scanSuccess, setScanSuccess] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const regionId = "qr-reader-container";
-  useEffect(() => {
-    if (isOpen && !scannerRef.current) {
-      const html5QrCode = new Html5Qrcode(regionId);
-      scannerRef.current = html5QrCode;
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      html5QrCode.start(
-        { facingMode: "environment" },
-        config,
-        (decodedText) => {
-          setScanSuccess(true);
-          // Pause and wait a bit for visual feedback
-          html5QrCode.pause();
-          setTimeout(() => {
-            onScan(decodedText);
-            stopScanner();
-          }, 800);
-        },
-        () => {
-          // Failure is ignored to prevent console spam during scanning
-        }
-      ).then(() => setIsCameraReady(true))
-       .catch((err) => {
-         console.error("Camera start error:", err);
-         toast.error("Could not access camera. Please check permissions.");
-         onClose();
-       });
-    }
-    return () => {
-      stopScanner();
-    };
-  }, [isOpen]);
-  const stopScanner = async () => {
+  const stopScanner = useCallback(async () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       try {
         await scannerRef.current.stop();
@@ -56,7 +25,38 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
     scannerRef.current = null;
     setIsCameraReady(false);
     setScanSuccess(false);
-  };
+  }, []);
+  useEffect(() => {
+    if (isOpen && !scannerRef.current) {
+      const html5QrCode = new Html5Qrcode(regionId);
+      scannerRef.current = html5QrCode;
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+          setScanSuccess(true);
+          html5QrCode.pause();
+          setTimeout(() => {
+            onScan(decodedText);
+            stopScanner();
+          }, 800);
+        },
+        () => {
+          // Failure ignored to reduce noise
+        }
+      ).then(() => setIsCameraReady(true))
+       .catch((err) => {
+         console.error("Camera start error:", err);
+         toast.error("Could not access camera. Please check permissions.");
+         onClose();
+       });
+    }
+    return () => {
+      // Intentional async floating stop is usually fine for cleanup
+      void stopScanner();
+    };
+  }, [isOpen, onClose, onScan, stopScanner]);
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[400px] overflow-hidden">

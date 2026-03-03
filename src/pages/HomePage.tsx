@@ -5,19 +5,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '@/lib/auth-store';
+import { deriveMasterKey } from '@/lib/crypto-utils';
 export function HomePage() {
   const navigate = useNavigate();
+  const setAuth = useAuthStore(s => s.setAuth);
   const [step, setStep] = useState<'hero' | 'auth'>('hero');
   const [profileName, setProfileName] = useState('');
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const handleEnterVault = (e: React.FormEvent) => {
+  const handleEnterVault = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileName.trim()) return;
     setIsUnlocking(true);
-    // Simulate decryption delay
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 1500);
+    try {
+      // For the demo landing page, we derive a mock key to satisfy the AuthGuard
+      const salt = "demo-salt-sentinel";
+      const masterKey = await deriveMasterKey("demo-password", salt);
+      setAuth({ 
+        id: crypto.randomUUID(), 
+        name: profileName.trim(), 
+        salt 
+      }, masterKey);
+      // Simulate UI delay
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 800);
+    } catch (err) {
+      console.error("Auth derivation failed", err);
+    } finally {
+      setIsUnlocking(false);
+    }
   };
   const container = {
     hidden: { opacity: 0 },
@@ -63,7 +80,7 @@ export function HomePage() {
                   >
                     Open Vault <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
-                  <Button size="lg" variant="outline" className="h-14 px-8 text-lg border-2" onClick={() => window.open('https://github', '_blank')}>
+                  <Button size="lg" variant="outline" className="h-14 px-8 text-lg border-2" onClick={() => window.open('https://github.com', '_blank')}>
                     <Github className="mr-2 w-5 h-5" /> View Source
                   </Button>
                 </div>
@@ -109,9 +126,9 @@ export function HomePage() {
                           />
                         </div>
                       </div>
-                      <Button 
-                        type="submit" 
-                        className="w-full h-12 btn-gradient font-bold" 
+                      <Button
+                        type="submit"
+                        className="w-full h-12 btn-gradient font-bold"
                         disabled={!profileName || isUnlocking}
                       >
                         {isUnlocking ? (
@@ -123,10 +140,10 @@ export function HomePage() {
                           'Unlock Vault'
                         )}
                       </Button>
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        className="w-full" 
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full"
                         onClick={() => setStep('hero')}
                         disabled={isUnlocking}
                       >
@@ -139,11 +156,11 @@ export function HomePage() {
             )}
           </AnimatePresence>
           {step === 'hero' && (
-            <motion.div 
-              variants={container} 
-              initial="hidden" 
-              whileInView="show" 
-              viewport={{ once: true }} 
+            <motion.div
+              variants={container}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
               className="grid grid-cols-1 md:grid-cols-3 gap-8 py-20"
             >
               {[
