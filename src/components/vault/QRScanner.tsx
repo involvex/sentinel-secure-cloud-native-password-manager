@@ -13,7 +13,7 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const regionId = "qr-reader-container";
+  const containerRef = useRef<HTMLDivElement>(null);
   const stopScanner = useCallback(async () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       try {
@@ -27,8 +27,8 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
     setScanSuccess(false);
   }, []);
   useEffect(() => {
-    if (isOpen && !scannerRef.current) {
-      const html5QrCode = new Html5Qrcode(regionId);
+    if (isOpen && containerRef.current && containerRef.current.offsetParent !== null && !scannerRef.current) {
+      const html5QrCode = new Html5Qrcode(containerRef.current as HTMLElement);
       scannerRef.current = html5QrCode;
       const config = { fps: 10, qrbox: { width: 250, height: 250 } };
       html5QrCode.start(
@@ -70,7 +70,7 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="relative aspect-square w-full bg-black rounded-xl overflow-hidden mt-4 border-2 border-border/50">
-          <div id={regionId} className="w-full h-full" />
+          <div ref={containerRef} className="w-full h-full" />
           {!isCameraReady && !scanSuccess && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
               <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
