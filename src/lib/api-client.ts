@@ -4,7 +4,9 @@ import { encryptData, decryptData } from "./crypto-utils"
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const auth = useAuthStore.getState();
   const headers = new Headers(init?.headers);
-  if (auth.user?.id) headers.set('X-User-Id', auth.user.id);
+  if (auth.user?.id) {
+    headers.set('X-User-Id', auth.user.id);
+  }
   headers.set('Content-Type', 'application/json');
   let body = init?.body;
   const isVaultMutation = path.startsWith('/api/vault') && (init?.method === 'POST' || init?.method === 'PUT');
@@ -14,18 +16,20 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       const encryptedData = { ...data };
       const secretFields = ['password', 'totpSecret', 'notes', 'wifiPassword', 'sshKey', 'passportNumber', 'address', 'phone'];
       for (const field of secretFields) {
-        if (data[field]) {
+        if (data[field] && typeof data[field] === 'string' && data[field].length > 0) {
           encryptedData[field] = await encryptData(data[field], auth.masterKey);
         }
       }
       body = JSON.stringify(encryptedData);
     } catch (e) {
-      console.error("Encryption failed", e);
+      console.error("[SENTINEL] Encryption failed for vault mutation", e);
     }
   }
   const res = await fetch(path, { ...init, headers, body });
   const json = (await res.json()) as ApiResponse<T>;
-  if (!res.ok || !json.success || json.data === undefined) throw new Error(json.error || 'Request failed');
+  if (!res.ok || !json.success || json.data === undefined) {
+    throw new Error(json.error || 'Sentinel API request failed');
+  }
   const isVaultFetch = path === '/api/vault' || path.startsWith('/api/vault/');
   if (isVaultFetch && auth.masterKey && json.data) {
     if ((json.data as any).items && Array.isArray((json.data as any).items)) {
@@ -42,12 +46,18 @@ async function decryptVaultItem(item: VaultItem, key: CryptoKey): Promise<VaultI
   try {
     for (const field of secretFields) {
       const val = (item as any)[field];
+      // Decryption heuristic: Encrypted blobs in our system are base64-ish and typically > 20 chars
       if (val && typeof val === 'string' && val.length > 20) {
-        (decrypted as any)[field] = await decryptData(val, key);
+        try {
+          (decrypted as any)[field] = await decryptData(val, key);
+        } catch (innerErr) {
+          // If decryption fails, it might be legacy plaintext or corrupted; keep as is
+          console.warn(`[SENTINEL] Could not decrypt field ${field} for item ${item.id}`);
+        }
       }
     }
   } catch (e) {
-    console.error("Decryption failed", item.id, e);
+    console.error("[SENTINEL] Critical failure in item decryption logic", item.id, e);
   }
   return decrypted;
 }

@@ -23,7 +23,8 @@ export function getStrengthData(password: string): StrengthResult {
     return { score: 0, label: 'None', color: 'bg-muted', suggestions: [] };
   }
   const result = zxcvbn(password);
-  const score = (result.score >= 0 && result.score <= 4 ? result.score : 0) as StrengthLevel;
+  const rawScore = result.score;
+  const score = (rawScore >= 0 && rawScore <= 4 ? rawScore : 0) as StrengthLevel;
   const mapping: Record<StrengthLevel, { label: string; color: string }> = {
     0: { label: 'Very Weak', color: 'bg-destructive' },
     1: { label: 'Weak', color: 'bg-orange-500' },
@@ -35,20 +36,24 @@ export function getStrengthData(password: string): StrengthResult {
     score,
     label: mapping[score].label,
     color: mapping[score].color,
-    suggestions: result.feedback.suggestions,
-    warning: result.feedback.warning,
+    suggestions: result.feedback.suggestions || [],
+    warning: result.feedback.warning || undefined,
   };
 }
 export async function checkPasswordBreach(password: string): Promise<{ isBreached: boolean; count: number }> {
   if (!password || password.length < 4) return { isBreached: false, count: 0 };
   // Simulated breach check for demo purposes
-  const commonPasswords = ['password', '123456', 'qwerty', 'admin', 'sentinel'];
-  if (commonPasswords.includes(password.toLowerCase())) {
-    return { isBreached: true, count: Math.floor(Math.random() * 1000000) + 50000 };
+  const commonPasswords = ['password', '123456', 'qwerty', 'admin', 'sentinel', 'password123'];
+  const normalized = password.toLowerCase().trim();
+  if (commonPasswords.includes(normalized)) {
+    return { isBreached: true, count: 154200 + Math.floor(Math.random() * 5000) };
   }
-  const isSimulatedBreach = password.length < 8;
+  // Length-based simulation: shorter passwords are more likely to have been breached historically
+  if (password.length < 8) {
+    return { isBreached: true, count: 12 + Math.floor(Math.random() * 88) };
+  }
   return {
-    isBreached: isSimulatedBreach,
-    count: isSimulatedBreach ? Math.floor(Math.random() * 100) : 0
+    isBreached: false,
+    count: 0
   };
 }

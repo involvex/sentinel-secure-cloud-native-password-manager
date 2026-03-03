@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useVaultStore } from '@/lib/store';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { generateTOTP } from '@/lib/totp-utils';
 import { getStrengthData, checkPasswordBreach } from '@/lib/security-utils';
@@ -10,23 +10,16 @@ import { ItemForm } from './ItemForm';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { QRDisplay } from './QRDisplay';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  Copy, Star, Edit, ArrowLeft, ShieldCheck, Fingerprint, Loader2, Folder,
-  Clock, Check, Laptop, Usb, Eye, EyeOff, AlertTriangle, ShieldAlert, 
-  Wifi, Terminal, Mail, Shield, User, MapPin, Phone, Calendar
+  Copy, Edit, ShieldCheck, Check, Laptop, Eye, EyeOff, Mail, Wifi, Terminal, User, MapPin, Phone, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { authenticatePasskey } from '@/lib/webauthn-utils';
 export function ItemDetail() {
   const selectedItemId = useVaultStore(s => s.selectedItemId);
-  const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showQR, setShowQR] = useState(false);
   const [copyState, setCopyState] = useState<Record<string, boolean>>({});
   const [totp, setTotp] = useState({ code: '------', secondsRemaining: 30 });
   const [breachInfo, setBreachInfo] = useState<{ isBreached: boolean; count: number } | null>(null);
@@ -35,14 +28,18 @@ export function ItemDetail() {
     queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
   });
   const item = itemsData?.items.find(i => i.id === selectedItemId);
-  const strength = useMemo(() => item?.password ? getStrengthData(item.password) : null, [item?.password]);
   useEffect(() => {
-    if (item?.password) checkPasswordBreach(item.password).then(setBreachInfo);
-    else setBreachInfo(null);
-  }, [item?.password]);
+    if (item?.password) {
+      checkPasswordBreach(item.password).then(setBreachInfo);
+    } else {
+      setBreachInfo(null);
+    }
+  }, [item?.password, item?.id]);
   useEffect(() => {
     if (item?.totpSecret) {
-      const updateTotp = () => setTotp(generateTOTP(item.totpSecret!));
+      const updateTotp = () => {
+        if (item.totpSecret) setTotp(generateTOTP(item.totpSecret));
+      };
       updateTotp();
       const interval = setInterval(updateTotp, 1000);
       return () => clearInterval(interval);
@@ -51,8 +48,9 @@ export function ItemDetail() {
   useEffect(() => {
     setIsEditing(false);
     setShowPassword(false);
+    setCopyState({});
   }, [selectedItemId]);
-  const copyToClipboard = (text: string, label: string) => {
+  const copyToClipboard = (text: string | undefined, label: string) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
     setCopyState(prev => ({ ...prev, [label]: true }));
@@ -67,7 +65,7 @@ export function ItemDetail() {
     </div>
   );
   const renderField = (label: string, value: string | undefined, icon?: React.ReactNode, isSecret = false) => {
-    if (!value) return null;
+    if (!value || value.trim() === '') return null;
     return (
       <div className="p-4 rounded-2xl border bg-secondary/20 hover:bg-secondary/30 transition-colors group">
         <div className="flex items-center gap-2 mb-1">
@@ -94,10 +92,10 @@ export function ItemDetail() {
   };
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
-      <header className="p-6 border-b flex justify-between items-center bg-card/5 backdrop-blur-md sticky top-0 z-10">
+      <header className="p-6 border-b flex justify-between items-center bg-card/5 backdrop-blur-md sticky top-0 z-10 shrink-0">
         <div className="flex items-center gap-4 min-w-0">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-primary-foreground font-bold text-xl shrink-0">
-            {item.title[0].toUpperCase()}
+            {item.title[0]?.toUpperCase() || '?'}
           </div>
           <div className="min-w-0">
             <h2 className="text-2xl font-bold truncate tracking-tight">{item.title}</h2>
@@ -105,7 +103,9 @@ export function ItemDetail() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon" onClick={() => setIsEditing(!isEditing)}><Edit className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => setIsEditing(!isEditing)} className={cn(isEditing && "bg-accent text-accent-foreground")}>
+            <Edit className="w-5 h-5" />
+          </Button>
         </div>
       </header>
       <div className="flex-1 overflow-y-auto p-6 md:p-10">
@@ -115,11 +115,12 @@ export function ItemDetail() {
               <ItemForm initialData={item} onSuccess={() => setIsEditing(false)} onCancel={() => setIsEditing(false)} />
             </motion.div>
           ) : (
-            <div className="max-w-xl mx-auto space-y-6">
+            <div className="max-w-xl mx-auto space-y-6 pb-12">
               {item.type === 'login' && (
                 <>
                   {renderField('Username', item.username, <User className="w-3 h-3" />)}
                   {renderField('Password', item.password, <ShieldCheck className="w-3 h-3" />, true)}
+                  {item.url && renderField('URL', item.url, <Laptop className="w-3 h-3" />)}
                 </>
               )}
               {item.type === 'wifi' && (
@@ -127,11 +128,11 @@ export function ItemDetail() {
                   {renderField('SSID', item.ssid, <Wifi className="w-3 h-3" />)}
                   {renderField('WiFi Password', item.wifiPassword, <ShieldCheck className="w-3 h-3" />, true)}
                   <div className="p-6 rounded-3xl border bg-primary/5 flex flex-col items-center gap-4">
-                    <Label className="text-xs font-bold uppercase text-primary">Share Network</Label>
-                    <div className="bg-white p-3 rounded-xl border">
+                    <Label className="text-xs font-bold uppercase text-primary">Quick Share</Label>
+                    <div className="bg-white p-3 rounded-xl border shadow-sm">
                       <QRCodeSVG value={`WIFI:T:WPA;S:${item.ssid};P:${item.wifiPassword};;`} size={160} />
                     </div>
-                    <p className="text-[10px] text-muted-foreground text-center">Scan to connect to {item.ssid}</p>
+                    <p className="text-[10px] text-muted-foreground text-center">Scan with a phone to join network</p>
                   </div>
                 </>
               )}
@@ -142,36 +143,35 @@ export function ItemDetail() {
                     <Label className="text-xs font-bold text-indigo-600 uppercase">Secure Email Alias</Label>
                   </div>
                   <div className="flex justify-between items-center bg-background p-3 rounded-xl border">
-                    <span className="font-mono text-sm">{item.aliasEmail}</span>
-                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(item.aliasEmail!, 'Alias')}>
-                      <Copy className="w-4 h-4" />
+                    <span className="font-mono text-sm truncate mr-2">{item.aliasEmail}</span>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(item.aliasEmail, 'Alias')} className="shrink-0">
+                      {copyState['Alias'] ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                     </Button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Forwarding all messages to your primary vault address.</p>
                 </div>
               )}
               {item.type === 'identity' && (
                 <div className="grid grid-cols-1 gap-3">
                   {renderField('Full Name', item.identityName, <User className="w-3 h-3" />)}
-                  {renderField('Date of Birth', item.dob, <Calendar className="w-3 h-3" />)}
+                  {renderField('DOB', item.dob, <Calendar className="w-3 h-3" />)}
                   {renderField('Phone', item.phone, <Phone className="w-3 h-3" />)}
                   {renderField('Address', item.address, <MapPin className="w-3 h-3" />)}
                 </div>
               )}
               {item.type === 'ssh' && (
                 <>
-                  {renderField('Host / Server', item.sshHost, <Terminal className="w-3 h-3" />)}
+                  {renderField('Host', item.sshHost, <Terminal className="w-3 h-3" />)}
                   <div className="space-y-2">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-2">Private Key</Label>
-                    <div className="p-4 rounded-2xl border bg-slate-950 text-slate-50 font-mono text-[10px] overflow-x-auto whitespace-pre leading-tight">
+                    <div className="p-4 rounded-2xl border bg-slate-950 text-slate-50 font-mono text-[10px] overflow-x-auto whitespace-pre leading-relaxed max-h-48">
                       {showPassword ? item.sshKey : '••••••••••••••••••••••••••••••••'}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowPassword(!showPassword)}>
+                      <Button variant="outline" size="sm" className="flex-1 h-9" onClick={() => setShowPassword(!showPassword)}>
                         {showPassword ? <EyeOff className="w-3 h-3 mr-2" /> : <Eye className="w-3 h-3 mr-2" />}
-                        {showPassword ? 'Mask Key' : 'Show Key'}
+                        {showPassword ? 'Mask Key' : 'Reveal Key'}
                       </Button>
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => copyToClipboard(item.sshKey!, 'SSH Key')}>
+                      <Button variant="outline" size="sm" className="flex-1 h-9" onClick={() => copyToClipboard(item.sshKey, 'SSH Key')}>
                         <Copy className="w-3 h-3 mr-2" /> Copy Key
                       </Button>
                     </div>
@@ -179,8 +179,11 @@ export function ItemDetail() {
                 </>
               )}
               {item.notes && (
-                <div className="p-6 rounded-3xl bg-secondary/10 border border-border/50 text-sm whitespace-pre-wrap">
-                  {item.notes}
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-2">Secure Notes</Label>
+                  <div className="p-6 rounded-3xl bg-secondary/10 border border-border/50 text-sm whitespace-pre-wrap leading-relaxed">
+                    {item.notes}
+                  </div>
                 </div>
               )}
             </div>
