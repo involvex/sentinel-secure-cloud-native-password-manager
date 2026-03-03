@@ -1,15 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 export function useTheme() {
-  const [isDark, setIsDark] = useState<boolean>(() => {
+  const [isDark, setIsDark] = React.useState<boolean>(() => {
     try {
+      if (typeof window === 'undefined') return false;
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme) return savedTheme === 'dark';
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     } catch (e) {
+      console.warn('Theme preference storage inaccessible', e);
       return false;
     }
   });
-  useEffect(() => {
+  React.useEffect(() => {
     try {
       const root = window.document.documentElement;
       if (isDark) {
@@ -23,7 +25,7 @@ export function useTheme() {
       console.error('Failed to update theme preference', e);
     }
   }, [isDark]);
-  const toggleTheme = useCallback(() => {
+  const toggleTheme = React.useCallback(() => {
     setIsDark((prev) => !prev);
   }, []);
   return { isDark, toggleTheme };

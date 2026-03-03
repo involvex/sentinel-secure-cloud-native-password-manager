@@ -14,17 +14,25 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       masterKey: null,
       isAuthenticated: false,
-      setAuth: (user, key) => set({ user, masterKey: key, isAuthenticated: true }),
-      clearAuth: () => set({ user: null, masterKey: null, isAuthenticated: false }),
+      setAuth: (user, key) => set({ 
+        user, 
+        masterKey: key, 
+        isAuthenticated: true 
+      }),
+      clearAuth: () => set({ 
+        user: null, 
+        masterKey: null, 
+        isAuthenticated: false 
+      }),
     }),
     {
       name: 'sentinel-auth-storage',
       storage: createJSONStorage(() => localStorage),
-      // CRITICAL: Never persist the masterKey CryptoKey object to localStorage.
-      // It must stay in memory only for zero-knowledge security.
-      partialize: (state) => ({ 
+      // CRITICAL: masterKey CryptoKey objects are not serializable and must NEVER be stored in localStorage.
+      // We keep user info for the session but wipe the key from memory on refresh if not handled by higher-level recovery.
+      partialize: (state) => ({
         user: state.user,
-        isAuthenticated: state.isAuthenticated 
+        isAuthenticated: state.isAuthenticated
       }),
     }
   )
