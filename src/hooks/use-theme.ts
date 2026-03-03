@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 export function useTheme() {
-  const [isDark, setIsDark] = useState(() => {
+  const [isDark, setIsDark] = useState<boolean>(() => {
     try {
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme) return savedTheme === 'dark';
@@ -11,18 +11,19 @@ export function useTheme() {
   });
   useEffect(() => {
     try {
+      const root = window.document.documentElement;
       if (isDark) {
-        document.documentElement.classList.add('dark');
+        root.classList.add('dark');
         localStorage.setItem('theme', 'dark');
       } else {
-        document.documentElement.classList.remove('dark');
+        root.classList.remove('dark');
         localStorage.setItem('theme', 'light');
       }
     } catch (e) {
       console.error('Failed to update theme preference', e);
     }
   }, [isDark]);
-  const toggleTheme = React.useCallback(() => {
+  const toggleTheme = useCallback(() => {
     setIsDark((prev) => !prev);
   }, []);
   return { isDark, toggleTheme };

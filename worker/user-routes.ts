@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from './core-utils';
 import { UserEntity, VaultItemEntity } from "./entities";
-import { ok, bad, notFound, isStr } from './core-utils';
+import { ok, bad, notFound } from './core-utils';
 import type { VaultItem } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // VAULT ENDPOINTS
@@ -15,6 +15,20 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     if (data.type === 'passkey' && !data.passkeyData) return bad(c, 'Passkey data required');
     const item = { ...data, id: crypto.randomUUID(), updatedAt: Date.now() };
     return ok(c, await VaultItemEntity.create(c.env, item));
+  });
+  // BULK IMPORT
+  app.post('/api/vault/bulk', async (c) => {
+    const items = await c.req.json() as VaultItem[];
+    if (!Array.isArray(items)) return bad(c, 'Expected array of items');
+    const results = await Promise.all(items.map(async (item) => {
+      const sanitized = { 
+        ...item, 
+        id: item.id || crypto.randomUUID(), 
+        updatedAt: item.updatedAt || Date.now() 
+      };
+      return VaultItemEntity.create(c.env, sanitized);
+    }));
+    return ok(c, { count: results.length });
   });
   app.put('/api/vault/:id', async (c) => {
     const id = c.req.param('id');
@@ -32,11 +46,13 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.post('/api/auth/challenge', async (c) => {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
-    // Base64URL encode
-    const challenge = btoa(String.fromCharCode(...array)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    const challenge = btoa(String.fromCharCode(...array))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
     return ok(c, { challenge });
   });
-  // USERS (legacy demo)
+  // USERS
   app.get('/api/users', async (c) => {
     await UserEntity.ensureSeed(c.env);
     return ok(c, await UserEntity.list(c.env));

@@ -7,22 +7,17 @@ import type { VaultItem } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { ItemForm } from './ItemForm';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
-  Copy, ExternalLink, ShieldCheck, Star, Edit, Trash2,
-  Check, ArrowLeft, ShieldAlert, Clock, Hash, Folder, Fingerprint, Lock
+  Copy, Star, Edit, ArrowLeft, ShieldCheck, Fingerprint, Loader2, Folder, 
+  Clock, Hash, ShieldAlert
 } from 'lucide-react';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
-} from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authenticatePasskey } from '@/lib/webauthn-utils';
 export function ItemDetail() {
   const selectedItemId = useVaultStore(s => s.selectedItemId);
-  const setSelectedItemId = useVaultStore(s => s.setSelectedItemId);
-  const setActiveTag = useVaultStore(s => s.setActiveTag);
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -55,9 +50,7 @@ export function ItemDetail() {
     try {
       const { challenge } = await api<{ challenge: string }>('/api/auth/challenge', { method: 'POST' });
       await authenticatePasskey(item.passkeyData.credentialId, challenge);
-      toast.success('Passkey Verification Successful', {
-        description: `Verified hardware identity for ${item.title}`
-      });
+      toast.success('Passkey Verification Successful');
     } catch (err) {
       toast.error('Passkey authentication failed');
     } finally {
@@ -74,14 +67,14 @@ export function ItemDetail() {
     <div className="h-full flex flex-col items-center justify-center p-12 text-center bg-background/30">
       <ShieldCheck className="w-16 h-16 text-muted-foreground/20 mb-4" />
       <h3 className="text-xl font-bold">Secure Vault</h3>
-      <p className="text-muted-foreground text-sm max-w-xs">Select a secret to view its details. All data is edge-encrypted.</p>
+      <p className="text-muted-foreground text-sm max-w-xs">Select an item to view its details. Your data is encrypted locally.</p>
     </div>
   );
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
       <header className="p-6 border-b flex justify-between items-center bg-card/5 sticky top-0 z-10">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
+          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl shrink-0">
             {item.type === 'passkey' ? <Fingerprint className="w-6 h-6" /> : item.title[0].toUpperCase()}
           </div>
           <div className="min-w-0">
@@ -120,9 +113,9 @@ export function ItemDetail() {
                   <div className="bg-secondary/30 p-4 rounded-xl font-mono text-xs text-muted-foreground break-all">
                     Credential ID: {item.passkeyData.credentialId}
                   </div>
-                  <Button 
-                    className="w-full h-14 text-lg btn-gradient" 
-                    onClick={handlePasskeyAuth} 
+                  <Button
+                    className="w-full h-14 text-lg btn-gradient"
+                    onClick={handlePasskeyAuth}
                     disabled={isAuthenticating}
                   >
                     {isAuthenticating ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ShieldCheck className="w-5 h-5 mr-2" />}
@@ -149,21 +142,23 @@ export function ItemDetail() {
                 </div>
               )}
               {item.totpSecret && (
-                <div className="p-6 rounded-2xl bg-secondary/5 border space-y-4">
+                <div className="p-6 rounded-2xl bg-secondary/5 border border-primary/20 space-y-4">
                   <div className="flex justify-between items-center">
-                    <Label className="text-xs font-bold uppercase tracking-widest">2FA Code</Label>
-                    <Badge variant="outline" className="font-mono">{totp.secondsRemaining}s</Badge>
+                    <Label className="text-xs font-bold uppercase tracking-widest text-primary">2FA Code</Label>
+                    <Badge variant="outline" className="font-mono bg-background">{totp.secondsRemaining}s</Badge>
                   </div>
                   <div className="text-4xl font-mono font-black text-center tracking-[0.2em] py-2 text-primary">
                     {totp.code.slice(0,3)} {totp.code.slice(3)}
                   </div>
-                  <Button variant="secondary" className="w-full" onClick={() => copyToClipboard(totp.code, '2FA Code')}>Copy Code</Button>
+                  <Button variant="secondary" className="w-full bg-primary/10 hover:bg-primary/20 border-none" onClick={() => copyToClipboard(totp.code, '2FA Code')}>Copy Code</Button>
                 </div>
               )}
               {item.notes && (
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest">Notes</Label>
-                  <div className="p-6 rounded-2xl bg-secondary/10 border whitespace-pre-wrap leading-relaxed">{item.notes}</div>
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Notes</Label>
+                  <div className="p-6 rounded-2xl bg-secondary/10 border whitespace-pre-wrap leading-relaxed text-sm">
+                    {item.notes}
+                  </div>
                 </div>
               )}
             </motion.div>

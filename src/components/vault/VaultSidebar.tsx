@@ -1,5 +1,5 @@
 import React from "react";
-import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Trash2, Plus, Zap, Folder, Hash, UserCircle } from "lucide-react";
+import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Trash2, Plus, Zap, Folder, Hash, UserCircle, Settings, Share2 } from "lucide-react";
 import { useVaultStore } from "@/lib/store";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { GeneratorTool } from "./GeneratorTool";
 import { CreateItemDialog } from "./CreateItemDialog";
+import { ImportExportDialog } from "./ImportExportDialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ export function VaultSidebar() {
   const setActiveFilter = useVaultStore(s => s.setActiveFilter);
   const setActiveTag = useVaultStore(s => s.setActiveTag);
   const setCreateDialogOpen = useVaultStore(s => s.setCreateDialogOpen);
+  const setImportExportOpen = useVaultStore(s => s.setImportExportOpen);
   const { data } = useQuery({
     queryKey: ['vault-items'],
     queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
@@ -114,18 +116,18 @@ export function VaultSidebar() {
             {tags.length > 0 && (
               <SidebarGroup>
                 <SidebarGroupLabel className="px-3">Tags</SidebarGroupLabel>
-                <SidebarMenu>
+                <SidebarMenu className="grid grid-cols-1 gap-0.5">
                   {tags.map(([tag, count]) => (
                     <SidebarMenuItem key={tag}>
                       <SidebarMenuButton
                         isActive={activeTag === tag}
                         onClick={() => setActiveTag(tag)}
                         className={cn(
-                          "h-10 px-3 transition-colors group",
-                          activeTag === tag && "bg-accent/50 text-foreground font-semibold"
+                          "h-10 px-3 transition-colors group rounded-lg",
+                          activeTag === tag ? "bg-primary/10 text-primary font-bold" : "hover:bg-accent/40"
                         )}
                       >
-                        <Hash className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
+                        <Hash className={cn("w-4 h-4", activeTag === tag ? "text-primary" : "text-muted-foreground")} />
                         <span className="flex-1 truncate">{tag}</span>
                         <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 h-4 min-w-[1.25rem] justify-center opacity-70">
                           {count}
@@ -137,32 +139,22 @@ export function VaultSidebar() {
               </SidebarGroup>
             )}
             <SidebarGroup>
-              <SidebarGroupLabel className="px-3">Filters</SidebarGroupLabel>
+              <SidebarGroupLabel className="px-3">System</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton
-                    isActive={activeFilter === 'favorites'}
-                    onClick={() => setActiveFilter('favorites')}
-                    className={cn(
-                      "h-10 px-3",
-                      activeFilter === 'favorites' && "bg-accent/50 text-foreground font-semibold"
-                    )}
-                  >
-                    <Star className="w-4 h-4" />
-                    <span>Favorites</span>
+                  <SidebarMenuButton onClick={() => setImportExportOpen(true)} className="h-10 px-3">
+                    <Share2 className="w-4 h-4" />
+                    <span>Import / Export</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    isActive={activeFilter === 'trash'}
-                    onClick={() => setActiveFilter('trash')}
-                    className={cn(
-                      "h-10 px-3",
-                      activeFilter === 'trash' && "bg-accent/50 text-foreground font-semibold"
-                    )}
+                    isActive={activeFilter === 'favorites'}
+                    onClick={() => setActiveFilter('favorites')}
+                    className={cn("h-10 px-3", activeFilter === 'favorites' && "bg-accent/50 font-semibold")}
                   >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Trash</span>
+                    <Star className="w-4 h-4" />
+                    <span>Favorites</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -194,6 +186,7 @@ export function VaultSidebar() {
         </SidebarFooter>
       </Sidebar>
       <CreateItemDialog />
+      <ImportExportDialog />
     </>
   );
 }
