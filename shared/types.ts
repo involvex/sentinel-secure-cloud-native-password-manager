@@ -3,7 +3,14 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
 }
-export type VaultItemType = 'login' | 'card' | 'note' | 'passkey' | 'alias' | 'identity' | 'wifi' | 'ssh' | 'passport';
+export interface SecurityStats {
+  healthScore: number;
+  weakCount: number;
+  reusedCount: number;
+  breachedCount: number;
+  twoFactorPercentage: number;
+}
+export type VaultItemType = 'login' | 'card' | 'note' | 'passkey' | 'alias' | 'identity' | 'wifi' | 'ssh' | 'passport' | 'monitor';
 export type AuthenticatorTransport = 'usb' | 'nfc' | 'ble' | 'internal' | 'hybrid';
 export type AuthenticatorType = 'platform' | 'cross-platform';
 export interface PasskeyData {
@@ -34,6 +41,8 @@ export interface VaultItem {
   tags?: string[];
   totpSecret?: string;
   passkeys?: PasskeyData[];
+  isBreached?: boolean;
+  breachDate?: number;
   favorite: boolean;
   updatedAt: number;
   // Type-specific fields

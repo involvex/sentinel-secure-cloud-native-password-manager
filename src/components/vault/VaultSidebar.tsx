@@ -125,16 +125,16 @@ export function VaultSidebar() {
               <SidebarGroupLabel className="px-3">System</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    isActive={activeFilter === 'security'}
-                    onClick={() => setActiveFilter('security')}
+                  <SidebarMenuButton
+                    isActive={activeFilter === 'monitor'}
+                    onClick={() => setActiveFilter('monitor')}
                     className={cn(
                       "h-10 px-3",
-                      activeFilter === 'security' && "bg-indigo-500/10 text-indigo-600 font-bold"
+                      activeFilter === 'monitor' && "bg-indigo-500/10 text-indigo-600 font-bold"
                     )}
                   >
                     <Activity className="w-4 h-4" />
-                    <span>Security Center</span>
+                    <span>Security Monitor</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>

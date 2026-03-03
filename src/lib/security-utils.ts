@@ -1,5 +1,5 @@
 import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
-import { adjacencyGraphs, commonDictionary } from '@zxcvbn-ts/language-common';
+import { adjacencyGraphs, dictionary as commonDictionary } from '@zxcvbn-ts/language-common';
 import { dictionary, translations } from '@zxcvbn-ts/language-en';
 const options = {
   translations,
@@ -19,11 +19,11 @@ export interface StrengthResult {
   warning?: string;
 }
 export function getStrengthData(password: string): StrengthResult {
-  if (!password) {
+  if (!password || password.length === 0) {
     return { score: 0, label: 'None', color: 'bg-muted', suggestions: [] };
   }
   const result = zxcvbn(password);
-  const score = result.score as StrengthLevel;
+  const score = (result.score >= 0 && result.score <= 4 ? result.score : 0) as StrengthLevel;
   const mapping: Record<StrengthLevel, { label: string; color: string }> = {
     0: { label: 'Very Weak', color: 'bg-destructive' },
     1: { label: 'Weak', color: 'bg-orange-500' },
@@ -41,6 +41,7 @@ export function getStrengthData(password: string): StrengthResult {
 }
 export async function checkPasswordBreach(password: string): Promise<{ isBreached: boolean; count: number }> {
   if (!password || password.length < 4) return { isBreached: false, count: 0 };
+  // Simulated breach check for demo purposes
   const commonPasswords = ['password', '123456', 'qwerty', 'admin', 'sentinel'];
   if (commonPasswords.includes(password.toLowerCase())) {
     return { isBreached: true, count: Math.floor(Math.random() * 1000000) + 50000 };

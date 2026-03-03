@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import type { Env } from './core-utils';
 import { UserEntity, VaultItemEntity } from "./entities";
 import { ok, bad, notFound } from './core-utils';
-import type { VaultItem, User } from "@shared/types";
+import type { VaultItem, User, SecurityStats } from "@shared/types";
+import { getStrengthData } from "../src/lib/security-utils";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // AUTH ENDPOINTS
   app.post('/api/auth/signup', async (c) => {
@@ -42,6 +43,37 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const page = await VaultItemEntity.list(c.env, c.req.query('cursor') ?? null, 100);
     const filtered = page.items.filter(item => (item as any).userId === userId);
     return ok(c, { items: filtered, next: page.next });
+  });
+  app.get('/api/monitor/summary', async (c) => {
+    const userId = c.req.header('X-User-Id');
+    if (!userId) return bad(c, 'Unauthorized');
+    
+    const page = await VaultItemEntity.list(c.env, null, 1000);
+    const items = page.items.filter(item => (item as any).userId === userId);
+    
+    let weakCount = 0;
+    let reusedCount = 0;
+    let breachedCount = 0;
+    let twoFactorCount = 0;
+    const passwords = new Set<string>();
+    const reused = new Set<string>();
+
+    items.forEach(item => {
+      if (item.password) {
+        const strength = getStrengthData(item.password);
+        if (strength.score < 3) weakCount++;
+        if (passwords.has(item.password)) reused.add(item.password);
+        passwords.add(item.password);
+      }
+      if (item.totpSecret || (item.passkeys && item.passkeys.length > 0)) twoFactorCount++;
+      if (item.isBreached) breachedCount++;
+    });
+
+    reusedCount = items.filter(i => i.password && reused.has(i.password)).length;
+    const twoFactorPercentage = items.length > 0 ? Math.round((twoFactorCount / items.length) * 100) : 0;
+    const healthScore = items.length > 0 ? Math.max(0, 100 - (weakCount * 5) - (reusedCount * 3) - (breachedCount * 10)) : 100;
+
+    return ok(c, { healthScore, weakCount, reusedCount, breachedCount, twoFactorPercentage } as SecurityStats);
   });
   app.post('/api/vault', async (c) => {
     const userId = c.req.header('X-User-Id');

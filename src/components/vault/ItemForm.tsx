@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, ShieldCheck, X, Camera, ShieldAlert, Key, CreditCard, Mail, Wifi, Terminal, ScanFace, FileText, User, MapPin, Calendar, Smartphone } from 'lucide-react';
+import { Loader2, ShieldCheck, Shield, X, Camera, ShieldAlert, Key, CreditCard, Mail, Wifi, Terminal, ScanFace, FileText, User, MapPin, Calendar, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
