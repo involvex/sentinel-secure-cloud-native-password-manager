@@ -12,10 +12,11 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  Copy, Edit, ShieldCheck, Check, Laptop, Eye, EyeOff, Mail, Wifi, Terminal, User, MapPin, Phone, Calendar
+  Copy, Edit, ShieldCheck, Check, Laptop, Eye, EyeOff, Mail, Wifi, Terminal, User, MapPin, Phone, Calendar, CreditCard, Globe, ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getFaviconUrl, maskCardNumber } from '@/lib/utils';
 export function ItemDetail() {
   const selectedItemId = useVaultStore(s => s.selectedItemId);
   const [isEditing, setIsEditing] = useState(false);
@@ -50,6 +51,15 @@ export function ItemDetail() {
     setShowPassword(false);
     setCopyState({});
   }, [selectedItemId]);
+
+  const copyAllCardInfo = () => {
+    if (!item || item.type !== 'card') return;
+    const details = item as any;
+    const text = `Cardholder: ${details.cardholderName}\nNumber: ${details.cardNumber}\nExpiry: ${details.expiryDate}\nCVV: ${details.cvv}`;
+    navigator.clipboard.writeText(text);
+    toast.success("All card details copied to clipboard");
+  };
+
   const copyToClipboard = (text: string | undefined, label: string) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -94,9 +104,15 @@ export function ItemDetail() {
     <div className="h-full flex flex-col bg-background overflow-hidden">
       <header className="p-6 border-b flex justify-between items-center bg-card/5 backdrop-blur-md sticky top-0 z-10 shrink-0">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-primary-foreground font-bold text-xl shrink-0">
-            {item.title[0]?.toUpperCase() || '?'}
-          </div>
+          {item.url ? (
+            <div className="w-12 h-12 rounded-xl bg-white border flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+              <img src={getFaviconUrl(item.url)} alt="" className="w-8 h-8 object-contain" />
+            </div>
+          ) : (
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-primary-foreground font-bold text-xl shrink-0">
+              {item.title[0]?.toUpperCase() || '?'}
+            </div>
+          )}
           <div className="min-w-0">
             <h2 className="text-2xl font-bold truncate tracking-tight">{item.title}</h2>
             <Badge variant="secondary" className="text-[10px] uppercase px-1.5 py-0 bg-primary/10 text-primary">{item.type}</Badge>
@@ -120,7 +136,63 @@ export function ItemDetail() {
                 <>
                   {renderField('Username', item.username, <User className="w-3 h-3" />)}
                   {renderField('Password', item.password, <ShieldCheck className="w-3 h-3" />, true)}
-                  {item.url && renderField('URL', item.url, <Laptop className="w-3 h-3" />)}
+                  {item.url && (
+                    <div className="space-y-2">
+                      {renderField('URL', item.url, <Globe className="w-3 h-3" />)}
+                      <Button 
+                        variant="outline" 
+                        className="w-full gap-2 text-xs h-9 font-bold"
+                        onClick={() => window.open(item.url?.startsWith('http') ? item.url : `https://${item.url}`, '_blank')}
+                      >
+                        <ExternalLink className="w-3 h-3" /> Visit Website
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+              {item.type === 'card' && (
+                <div className="space-y-6">
+                  <div className="relative aspect-[1.586/1] w-full max-w-sm mx-auto p-8 rounded-3xl bg-slate-900 text-white shadow-2xl overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl" />
+                    <div className="relative z-10 h-full flex flex-col justify-between">
+                      <div className="flex justify-between items-start">
+                        <CreditCard className="w-10 h-10 text-slate-400" />
+                        <span className="text-xs font-bold tracking-widest text-slate-500 uppercase">Sentinel Card</span>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="text-2xl font-mono tracking-[0.2em]">
+                          {showPassword ? (item as any).cardNumber : maskCardNumber((item as any).cardNumber)}
+                        </div>
+                        <div className="flex justify-between items-end">
+                          <div className="space-y-1">
+                            <p className="text-[8px] uppercase tracking-tighter text-slate-500">Cardholder</p>
+                            <p className="text-sm font-bold uppercase">{(item as any).cardholderName || '---'}</p>
+                          </div>
+                          <div className="space-y-1 text-right">
+                            <p className="text-[8px] uppercase tracking-tighter text-slate-500">Expires</p>
+                            <p className="text-sm font-bold font-mono">{(item as any).expiryDate || '--/--'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    {renderField('Card Number', (item as any).cardNumber, <CreditCard className="w-3 h-3" />, true)}
+                    {renderField('Cardholder', (item as any).cardholderName, <User className="w-3 h-3" />)}
+                    <div className="grid grid-cols-2 gap-3">
+                      {renderField('Expiry', (item as any).expiryDate, <Calendar className="w-3 h-3" />)}
+                      {renderField('CVV', (item as any).cvv, <ShieldCheck className="w-3 h-3" />, true)}
+                    </div>
+                  </div>
+                  <Button variant="secondary" className="w-full h-11 font-bold gap-2" onClick={copyAllCardInfo}>
+                    <Copy className="w-4 h-4" /> Copy All Card Info
+                  </Button>
+                </div>
+              )}
+              {item.type === 'passport' && (
+                <>
+                  {renderField('Passport Number', (item as any).passportNumber, <ShieldCheck className="w-3 h-3" />, true)}
+                  {renderField('Issuing Country', (item as any).issuingCountry, <Globe className="w-3 h-3" />)}
                 </>
               )}
               {item.type === 'wifi' && (

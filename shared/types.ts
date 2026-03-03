@@ -28,6 +28,21 @@ export interface CustomField {
   label: string;
   value: string;
   isSecret: boolean;
+  isSecret: boolean;
+}
+export type CardType = 'visa' | 'mastercard' | 'amex' | 'discover' | 'jcb' | 'other';
+export interface CreditCardData {
+  number: string;
+  holderName: string;
+  expiryDate: string; // MM/YY
+  cvv: string;
+  cardType: CardType;
+}
+export interface PassportData {
+  number: string;
+  issuingCountry: string;
+  expiryDate: string;
+  type: string;
 }
 export interface VaultItem {
   id: string;
@@ -47,6 +62,8 @@ export interface VaultItem {
   updatedAt: number;
   // Type-specific fields
   aliasEmail?: string;
+  cardDetails?: CreditCardData;
+  passportDetails?: PassportData;
   identityName?: string;
   address?: string;
   dob?: string;

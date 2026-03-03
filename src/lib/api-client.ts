@@ -14,7 +14,19 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       const data = JSON.parse(body as string);
       const encryptedData = { ...data };
-      const secretFields = ['password', 'totpSecret', 'notes', 'wifiPassword', 'sshKey', 'passportNumber', 'address', 'phone'];
+      const secretFields = [
+        'password', 
+        'totpSecret', 
+        'notes', 
+        'wifiPassword', 
+        'sshKey', 
+        'passportNumber', 
+        'address', 
+        'phone',
+        'number', // credit card or passport number
+        'cvv',
+        'identityName'
+      ];
       for (const field of secretFields) {
         if (data[field] && typeof data[field] === 'string' && data[field].length > 0) {
           encryptedData[field] = await encryptData(data[field], auth.masterKey);
@@ -42,7 +54,19 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 async function decryptVaultItem(item: VaultItem, key: CryptoKey): Promise<VaultItem> {
   const decrypted = { ...item };
-  const secretFields = ['password', 'totpSecret', 'notes', 'wifiPassword', 'sshKey', 'passportNumber', 'address', 'phone'];
+  const secretFields = [
+    'password', 
+    'totpSecret', 
+    'notes', 
+    'wifiPassword', 
+    'sshKey', 
+    'passportNumber', 
+    'address', 
+    'phone',
+    'number',
+    'cvv',
+    'identityName'
+  ];
   try {
     for (const field of secretFields) {
       const val = (item as any)[field];

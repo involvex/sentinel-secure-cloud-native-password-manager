@@ -1,8 +1,8 @@
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, ShieldCheck, Shield, Key, CreditCard, Mail, Wifi, Terminal, ScanFace, FileText } from 'lucide-react';
+import { Loader2, ShieldCheck, Shield, Key, CreditCard, Mail, Wifi, Terminal, ScanFace, FileText, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +13,7 @@ import { VaultItem, VaultItemType } from '@shared/types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
+import { getDomainFromUrl } from '@/lib/utils';
 const schema = z.object({
   type: z.enum(['login', 'card', 'note', 'passkey', 'alias', 'identity', 'wifi', 'ssh', 'passport', 'monitor']),
   title: z.string().min(1, 'Title is required'),
@@ -34,6 +35,12 @@ const schema = z.object({
   wifiPassword: z.string().optional(),
   sshHost: z.string().optional(),
   sshKey: z.string().optional(),
+  cardNumber: z.string().optional(),
+  cardholderName: z.string().optional(),
+  expiryDate: z.string().optional(),
+  cvv: z.string().optional(),
+  passportNumber: z.string().optional(),
+  issuingCountry: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
 export function ItemForm({ initialData, onSuccess, onCancel }: { initialData?: VaultItem; onSuccess?: () => void; onCancel?: () => void }) {
@@ -55,9 +62,29 @@ export function ItemForm({ initialData, onSuccess, onCancel }: { initialData?: V
       address: initialData?.address ?? '',
       sshHost: initialData?.sshHost ?? '',
       sshKey: initialData?.sshKey ?? '',
+      cardNumber: (initialData as any)?.cardNumber ?? '',
+      cardholderName: (initialData as any)?.cardholderName ?? '',
+      expiryDate: (initialData as any)?.expiryDate ?? '',
+      cvv: (initialData as any)?.cvv ?? '',
+      passportNumber: initialData?.passportNumber ?? '',
+      issuingCountry: (initialData as any)?.issuingCountry ?? '',
       aliasEmail: initialData?.aliasEmail ?? (initialData?.type === 'alias' ? initialData.aliasEmail : `sentinel_${Math.random().toString(36).slice(2, 7)}@vault.internal`),
     },
   });
+
+  const urlValue = useWatch({ control: props.control, name: 'url' });
+  const titleValue = useWatch({ control: props.control, name: 'title' });
+
+  React.useEffect(() => {
+    if (urlValue && (!titleValue || titleValue === '')) {
+      const domain = getDomainFromUrl(urlValue);
+      if (domain) {
+        const suggested = domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
+        setValue('title', suggested);
+      }
+    }
+  }, [urlValue, setValue]);
+
   const selectedType = watch('type');
   const mutation = useMutation({
     mutationFn: (values: FormValues) => initialData?.id 
@@ -108,6 +135,10 @@ export function ItemForm({ initialData, onSuccess, onCancel }: { initialData?: V
               <Input {...register('username')} placeholder="Email/Username" className="bg-secondary/30" />
             </div>
             <div className="space-y-2">
+              <Label>URL</Label>
+              <Input {...register('url')} placeholder="https://github.com" className="bg-secondary/30" />
+            </div>
+            <div className="space-y-2">
               <Label>Password</Label>
               <div className="flex gap-2">
                 <Input {...register('password')} type="password" placeholder="Password" className="bg-secondary/30 flex-1" />
@@ -118,6 +149,38 @@ export function ItemForm({ initialData, onSuccess, onCancel }: { initialData?: V
               </div>
             </div>
           </>
+        )}
+        {selectedType === 'card' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 md:col-span-2">
+              <Label>Card Number</Label>
+              <Input {...register('cardNumber')} placeholder="0000 0000 0000 0000" className="bg-secondary/30 font-mono" />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Cardholder Name</Label>
+              <Input {...register('cardholderName')} placeholder="JOHN DOE" className="bg-secondary/30 uppercase" />
+            </div>
+            <div className="space-y-2">
+              <Label>Expiry Date</Label>
+              <Input {...register('expiryDate')} placeholder="MM/YY" className="bg-secondary/30" />
+            </div>
+            <div className="space-y-2">
+              <Label>CVV</Label>
+              <Input {...register('cvv')} type="password" placeholder="123" className="bg-secondary/30" />
+            </div>
+          </div>
+        )}
+        {selectedType === 'passport' && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Passport Number</Label>
+              <Input {...register('passportNumber')} className="bg-secondary/30 font-mono" />
+            </div>
+            <div className="space-y-2">
+              <Label>Issuing Country</Label>
+              <Input {...register('issuingCountry')} className="bg-secondary/30" />
+            </div>
+          </div>
         )}
         {selectedType === 'wifi' && (
           <>

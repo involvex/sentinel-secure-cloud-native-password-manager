@@ -1,7 +1,7 @@
 import React from "react";
-import { 
-  Shield, LayoutGrid, Key, CreditCard, FileText, Star, Plus, Zap, Folder, 
-  LogOut, Share2, UserCircle, Trash2, Activity, UserPlus, ShieldCheck 
+import {
+  Shield, LayoutGrid, Key, CreditCard, FileText, Star, Plus, Zap, Folder, Globe,
+  LogOut, Share2, UserCircle, Trash2, Activity, UserPlus, ShieldCheck, User, ScanFace
 } from "lucide-react";
 import { useVaultStore } from "@/lib/store";
 import { useAuthStore } from "@/lib/auth-store";
@@ -41,10 +41,13 @@ export function VaultSidebar() {
     queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
   });
   const categories = [
-    { id: 'all', label: 'All Items', icon: LayoutGrid },
+    { id: 'all', label: 'All Items', icon: Shield },
+    { id: 'websites', label: 'Websites', icon: Globe },
     { id: 'login', label: 'Logins', icon: Key },
     { id: 'card', label: 'Cards', icon: CreditCard },
-    { id: 'note', label: 'Secure Notes', icon: FileText },
+    { id: 'identity', label: 'Identities', icon: User },
+    { id: 'passport', label: 'Passports', icon: ScanFace },
+    { id: 'note', label: 'Notes', icon: FileText },
   ];
   const items = data?.items ?? [];
   const folders = Array.from(new Set(items.map(i => i.folder).filter(Boolean))) as string[];
