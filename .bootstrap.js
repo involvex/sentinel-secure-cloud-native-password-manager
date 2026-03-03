@@ -77,7 +77,12 @@ function updateWranglerJsonc() {
 }
 
 function runSetupCommands() {
-    const commands = [];
+    const commands = [
+    "bun add @zxcvbn-ts/core@^3.0.2",
+    "bun add @zxcvbn-ts/language-en@^3.0.2",
+    "bun add otplib@^13.0.1",
+    "bun add @tanstack/react-virtual@^3.1.1"
+];
     
     if (commands.length === 0) {
         console.log('⊘ No setup commands to run');
