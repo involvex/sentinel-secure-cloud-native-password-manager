@@ -1,9 +1,8 @@
 import '@/lib/errorReporter';
 import { enableMapSet } from "immer";
-enableMapSet();
-import React, { StrictMode, ReactNode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
+import React, { StrictMode } from 'react'
+import { createRoot, Root } from 'react-dom/client'
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
@@ -11,17 +10,16 @@ import '@/index.css'
 import { HomePage } from '@/pages/HomePage'
 import { Dashboard } from '@/pages/Dashboard'
 import { LoginPage } from '@/pages/LoginPage'
-import { useAuthStore } from '@/lib/auth-store';
-const queryClient = new QueryClient();
-function AuthGuard({ children }: { children: ReactNode }) {
-  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
-  const masterKey = useAuthStore(s => s.masterKey);
-  // If we have a session but lost the key (refresh), redirect to login
-  if (!isAuthenticated || !masterKey) {
-    return <Navigate to="/login" replace />;
-  }
-  return <>{children}</>;
-}
+import { AuthGuard } from '@/components/AuthGuard'
+enableMapSet();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 1000 * 60 * 5,
+    },
+  },
+});
 const router = createBrowserRouter([
   {
     path: "/",
@@ -43,7 +41,19 @@ const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
   }
 ]);
-createRoot(document.getElementById('root')!).render(
+// Singleton Root Management to prevent runtime createRoot errors
+const container = document.getElementById('root');
+if (!container) throw new Error("Root container not found");
+let root: Root;
+// @ts-ignore - attaching to window for singleton access during Fast Refresh
+if (window.__REACT_ROOT__) {
+  root = window.__REACT_ROOT__;
+} else {
+  root = createRoot(container);
+  // @ts-ignore
+  window.__REACT_ROOT__ = root;
+}
+root.render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GeneratorTool } from './GeneratorTool';
+import { QRScanner } from './QRScanner';
 import { PasskeyManager } from './PasskeyManager';
 import { VaultItem, VaultItemType } from '@shared/types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -38,6 +39,7 @@ interface ItemFormProps {
 }
 export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
   const queryClient = useQueryClient();
+  const [isScannerOpen, setIsScannerOpen] = React.useState(false);
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -88,6 +90,23 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
     }
     mutation.mutate(data);
   };
+
+  const handleQRScan = (text: string) => {
+    const { parseOtpAuthUri } = require('@/lib/totp-utils');
+    const info = parseOtpAuthUri(text);
+    if (info) {
+      setValue('totpSecret', info.secret);
+      if (!watch('title') && info.issuer) setValue('title', info.issuer);
+      if (!watch('username') && info.account) setValue('username', info.account);
+      toast.success('2FA details imported from QR');
+    } else {
+      // If not otpauth, maybe it's just a raw secret string
+      setValue('totpSecret', text);
+      toast.success('Secret imported from QR');
+    }
+    setIsScannerOpen(false);
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
@@ -146,7 +165,17 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label>Two-Step Verification (TOTP)</Label>
+                <Label className="flex-1">Two-Step Verification (TOTP)</Label>
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 text-[10px] font-bold uppercase tracking-tighter gap-1 text-primary hover:bg-primary/10 px-2"
+                  onClick={() => setIsScannerOpen(true)}
+                >
+                  <Camera className="w-3 h-3" />
+                  Scan QR
+                </Button>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>

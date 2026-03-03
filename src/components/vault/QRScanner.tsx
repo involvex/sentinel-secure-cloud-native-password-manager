@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import React, { useEffect, useRef, useState } from 'react';
+import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Camera, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Camera, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 interface QRScannerProps {
   isOpen: boolean;
@@ -13,8 +13,39 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerId = "sentinel-qr-reader";
-  const stopScanner = useCallback(async () => {
+  const regionId = "qr-reader-container";
+  useEffect(() => {
+    if (isOpen && !scannerRef.current) {
+      const html5QrCode = new Html5Qrcode(regionId);
+      scannerRef.current = html5QrCode;
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+          setScanSuccess(true);
+          // Pause and wait a bit for visual feedback
+          html5QrCode.pause();
+          setTimeout(() => {
+            onScan(decodedText);
+            stopScanner();
+          }, 800);
+        },
+        () => {
+          // Failure is ignored to prevent console spam during scanning
+        }
+      ).then(() => setIsCameraReady(true))
+       .catch((err) => {
+         console.error("Camera start error:", err);
+         toast.error("Could not access camera. Please check permissions.");
+         onClose();
+       });
+    }
+    return () => {
+      stopScanner();
+    };
+  }, [isOpen]);
+  const stopScanner = async () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       try {
         await scannerRef.current.stop();
@@ -25,41 +56,7 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
     scannerRef.current = null;
     setIsCameraReady(false);
     setScanSuccess(false);
-  }, []);
-  useEffect(() => {
-    if (isOpen && !scannerRef.current) {
-      // Use setTimeout to ensure the element is rendered in the DOM before targeting by ID
-      const timer = setTimeout(() => {
-        const html5QrCode = new Html5Qrcode(containerId);
-        scannerRef.current = html5QrCode;
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-        html5QrCode.start(
-          { facingMode: "environment" },
-          config,
-          (decodedText) => {
-            setScanSuccess(true);
-            html5QrCode.pause();
-            setTimeout(() => {
-              onScan(decodedText);
-              stopScanner();
-            }, 800);
-          },
-          () => {
-            // Failure ignored to reduce noise
-          }
-        ).then(() => setIsCameraReady(true))
-         .catch((err) => {
-           console.error("Camera start error:", err);
-           toast.error("Could not access camera. Please check permissions.");
-           onClose();
-         });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return () => {
-      void stopScanner();
-    };
-  }, [isOpen, onClose, onScan, stopScanner]);
+  };
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[400px] overflow-hidden">
@@ -73,7 +70,7 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="relative aspect-square w-full bg-black rounded-xl overflow-hidden mt-4 border-2 border-border/50">
-          <div id={containerId} className="w-full h-full" />
+          <div id={regionId} className="w-full h-full" />
           {!isCameraReady && !scanSuccess && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
               <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />

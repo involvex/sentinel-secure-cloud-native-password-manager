@@ -9,6 +9,7 @@ import { ItemForm } from './ItemForm';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { QRDisplay } from './QRDisplay';
 import {
   Copy, Star, Edit, ArrowLeft, ShieldCheck, Fingerprint, Loader2, Folder,
   Clock, Check, Laptop, Usb, Eye, EyeOff
@@ -22,6 +23,7 @@ export function ItemDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const [copyState, setCopyState] = useState<Record<string, boolean>>({});
   const [totp, setTotp] = useState({ code: '------', secondsRemaining: 30 });
   const { data: itemsData } = useQuery({
@@ -190,12 +192,22 @@ export function ItemDetail() {
                   </div>
                   <div className="flex justify-between items-center relative z-10">
                     <Label className="text-xs font-bold uppercase tracking-widest text-primary">2FA Security Token</Label>
-                    <Badge variant="outline" className={cn(
-                      "font-mono bg-background border-primary/20 px-3 transition-colors duration-300",
-                      totp.secondsRemaining < 5 ? "text-destructive border-destructive/50" : "text-primary"
-                    )}>
-                      {totp.secondsRemaining}s
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-[10px] font-bold text-primary px-1.5"
+                        onClick={() => setShowQR(true)}
+                      >
+                        Show QR
+                      </Button>
+                      <Badge variant="outline" className={cn(
+                        "font-mono bg-background border-primary/20 px-3 transition-colors duration-300",
+                        totp.secondsRemaining < 5 ? "text-destructive border-destructive/50" : "text-primary"
+                      )}>
+                        {totp.secondsRemaining}s
+                      </Badge>
+                    </div>
                   </div>
                   <div className="text-5xl font-mono font-black text-center tracking-[0.2em] py-4 text-primary relative z-10">
                     {totp.code.slice(0,3)} {totp.code.slice(3)}
@@ -236,6 +248,15 @@ export function ItemDetail() {
           )}
         </AnimatePresence>
       </div>
+      {item && item.totpSecret && (
+        <QRDisplay 
+          isOpen={showQR} 
+          onClose={() => setShowQR(false)} 
+          title={item.title} 
+          username={item.username} 
+          secret={item.totpSecret} 
+        />
+      )}
     </div>
   );
 }
