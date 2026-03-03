@@ -88,7 +88,8 @@ function runSetupCommands() {
     "bun add @simplewebauthn/browser@^9.0.0",
     "bun add @radix-ui/react-label",
     "bun add lucide-react",
-    "bun add @zxcvbn-ts/core @zxcvbn-ts/language-en"
+    "bun add @zxcvbn-ts/core @zxcvbn-ts/language-en",
+    "bun add html5-qrcode qrcode.react"
 ];
     
     if (commands.length === 0) {
