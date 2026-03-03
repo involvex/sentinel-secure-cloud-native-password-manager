@@ -89,7 +89,8 @@ function runSetupCommands() {
     "bun add @radix-ui/react-label",
     "bun add lucide-react",
     "bun add @zxcvbn-ts/core @zxcvbn-ts/language-en",
-    "bun add html5-qrcode qrcode.react"
+    "bun add html5-qrcode qrcode.react",
+    "bun install @zxcvbn-ts/language-common"
 ];
     
     if (commands.length === 0) {
