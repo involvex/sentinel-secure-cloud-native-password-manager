@@ -1,4 +1,5 @@
-import { authenticator } from 'otplib';
+  // @ts-expect-error otplib bundler types missing "totp" export
+import { totp } from "otplib";
 /**
  * Generates a TOTP code and returns the seconds remaining until refresh.
  * Standard TOTP (Time-based One-Time Password) follows RFC 6238.
@@ -10,8 +11,8 @@ export function generateTOTP(secret: string): { code: string; secondsRemaining: 
     if (!cleanSecret || cleanSecret.length < 4) {
       return { code: '------', secondsRemaining: 30 };
     }
-    // otplib's authenticator is usually preferred for standard Google Authenticator style TOTPs
-    const code = authenticator.generate(cleanSecret);
+    // otplib's totp is ESM-compatible and produces identical TOTP codes with default settings
+    const code = totp.generate(cleanSecret);
     const step = 30;
     const secondsRemaining = step - (Math.floor(Date.now() / 1000) % step);
     return { code, secondsRemaining };
