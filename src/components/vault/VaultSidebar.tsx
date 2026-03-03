@@ -1,6 +1,7 @@
 import React from "react";
-import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Trash2, Plus, Zap, Folder, Hash, UserCircle, Settings, Share2 } from "lucide-react";
+import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Plus, Zap, Folder, Hash, UserCircle, Share2, LogOut } from "lucide-react";
 import { useVaultStore } from "@/lib/store";
+import { useAuthStore } from "@/lib/auth-store";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { VaultItem } from "@shared/types";
@@ -23,13 +24,17 @@ import { ImportExportDialog } from "./ImportExportDialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 export function VaultSidebar() {
+  const navigate = useNavigate();
   const activeFilter = useVaultStore(s => s.activeFilter);
   const activeTag = useVaultStore(s => s.activeTag);
   const setActiveFilter = useVaultStore(s => s.setActiveFilter);
   const setActiveTag = useVaultStore(s => s.setActiveTag);
   const setCreateDialogOpen = useVaultStore(s => s.setCreateDialogOpen);
   const setImportExportOpen = useVaultStore(s => s.setImportExportOpen);
+  const user = useAuthStore(s => s.user);
+  const clearAuth = useAuthStore(s => s.clearAuth);
   const { data } = useQuery({
     queryKey: ['vault-items'],
     queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
@@ -49,6 +54,10 @@ export function VaultSidebar() {
     return acc;
   }, {} as Record<string, number>);
   const tags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
+  const handleLogout = () => {
+    clearAuth();
+    navigate('/');
+  };
   return (
     <>
       <Sidebar variant="inset" className="border-r border-border/50">
@@ -100,38 +109,10 @@ export function VaultSidebar() {
                       <SidebarMenuButton
                         isActive={activeFilter === folder && !activeTag}
                         onClick={() => setActiveFilter(folder)}
-                        className={cn(
-                          "h-10 px-3 transition-colors",
-                          activeFilter === folder && !activeTag && "bg-accent/50 text-foreground font-semibold"
-                        )}
+                        className={cn("h-10 px-3 transition-colors")}
                       >
                         <Folder className="w-4 h-4" />
                         <span>{folder}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroup>
-            )}
-            {tags.length > 0 && (
-              <SidebarGroup>
-                <SidebarGroupLabel className="px-3">Tags</SidebarGroupLabel>
-                <SidebarMenu className="grid grid-cols-1 gap-0.5">
-                  {tags.map(([tag, count]) => (
-                    <SidebarMenuItem key={tag}>
-                      <SidebarMenuButton
-                        isActive={activeTag === tag}
-                        onClick={() => setActiveTag(tag)}
-                        className={cn(
-                          "h-10 px-3 transition-colors group rounded-lg",
-                          activeTag === tag ? "bg-primary/10 text-primary font-bold" : "hover:bg-accent/40"
-                        )}
-                      >
-                        <Hash className={cn("w-4 h-4", activeTag === tag ? "text-primary" : "text-muted-foreground")} />
-                        <span className="flex-1 truncate">{tag}</span>
-                        <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 h-4 min-w-[1.25rem] justify-center opacity-70">
-                          {count}
-                        </Badge>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -151,7 +132,7 @@ export function VaultSidebar() {
                   <SidebarMenuButton
                     isActive={activeFilter === 'favorites'}
                     onClick={() => setActiveFilter('favorites')}
-                    className={cn("h-10 px-3", activeFilter === 'favorites' && "bg-accent/50 font-semibold")}
+                    className={cn("h-10 px-3")}
                   >
                     <Star className="w-4 h-4" />
                     <span>Favorites</span>
@@ -174,14 +155,17 @@ export function VaultSidebar() {
               <GeneratorTool />
             </PopoverContent>
           </Popover>
-          <div className="flex items-center gap-3 px-2 py-1 bg-secondary/30 rounded-xl border border-border/30">
+          <div className="flex items-center gap-3 px-2 py-1 bg-secondary/30 rounded-xl border border-border/30 group">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
               <UserCircle className="w-5 h-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold truncate">Vault User</p>
-              <p className="text-[10px] text-muted-foreground truncate uppercase font-extrabold tracking-tighter">Pro Plan</p>
+              <p className="text-xs font-bold truncate">{user?.name || 'Vault User'}</p>
+              <p className="text-[10px] text-muted-foreground truncate uppercase font-extrabold tracking-tighter">Encrypted Session</p>
             </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={handleLogout}>
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </SidebarFooter>
       </Sidebar>

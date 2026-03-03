@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Lock, User, KeyRound, Loader2, ArrowRight, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,25 +7,22 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { motion } from 'framer-motion';
-import { deriveMasterKey, generateSalt, hashPassword } from '@/lib/crypto-utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { deriveMasterKey, encryptData, generateSalt, hashPassword } from '@/lib/crypto-utils';
 import { useAuthStore } from '@/lib/auth-store';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
 export function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore(s => s.setAuth);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [loadingText, setLoadingText] = React.useState('');
-  const [formData, setFormData] = React.useState({ username: '', password: '' });
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({ username: '', password: '' });
   const handleAuth = async (mode: 'login' | 'signup') => {
     if (!formData.username || !formData.password) return;
     setIsLoading(true);
     try {
       if (mode === 'signup') {
-        setLoadingText('Initializing Secure Vault...');
         const salt = generateSalt();
-        setLoadingText('Deriving Master Key...');
         const masterKey = await deriveMasterKey(formData.password, salt);
         const passwordHash = await hashPassword(formData.password, salt);
         const user = await api<any>('/api/auth/signup', {
@@ -35,12 +32,12 @@ export function LoginPage() {
         setAuth(user, masterKey);
         toast.success('Account created! Your vault is ready.');
       } else {
-        setLoadingText('Retrieving Security Parameters...');
-        const { salt } = await api<{ salt: string }>(`/api/auth/salt/${formData.username}`);
-        setLoadingText('Deriving Master Key...');
-        const masterKey = await deriveMasterKey(formData.password, salt);
-        const passwordHash = await hashPassword(formData.password, salt);
-        setLoadingText('Verifying Credentials...');
+        // First get the user salt
+        const users = await api<any[]>('/api/users');
+        const userMatch = users.find(u => u.name === formData.username);
+        if (!userMatch) throw new Error('User not found');
+        const masterKey = await deriveMasterKey(formData.password, userMatch.salt);
+        const passwordHash = await hashPassword(formData.password, userMatch.salt);
         const user = await api<any>('/api/auth/login', {
           method: 'POST',
           body: JSON.stringify({ username: formData.username, passwordHash })
@@ -53,7 +50,6 @@ export function LoginPage() {
       toast.error(err.message || 'Authentication failed');
     } finally {
       setIsLoading(false);
-      setLoadingText('');
     }
   };
   return (
@@ -88,7 +84,7 @@ export function LoginPage() {
                       <Input
                         id="username"
                         placeholder="john_doe"
-                        className="pl-10 h-11"
+                        className="pl-10"
                         value={formData.username}
                         onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                       />
@@ -102,7 +98,7 @@ export function LoginPage() {
                         id="password"
                         type="password"
                         placeholder="••••••••"
-                        className="pl-10 h-11"
+                        className="pl-10"
                         value={formData.password}
                         onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                       />
@@ -110,55 +106,37 @@ export function LoginPage() {
                   </div>
                 </div>
                 <TabsContent value="login" className="mt-6">
-                  <Button
-                    className="w-full h-11 btn-gradient font-bold"
+                  <Button 
+                    className="w-full h-11 btn-gradient font-bold" 
                     onClick={() => handleAuth('login')}
                     disabled={isLoading}
                   >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        {loadingText || 'Unlocking...'}
-                      </>
-                    ) : (
-                      <>
-                        <KeyRound className="w-4 h-4 mr-2" />
-                        Unlock Vault
-                      </>
-                    )}
+                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
+                    Unlock Vault
                   </Button>
                 </TabsContent>
                 <TabsContent value="signup" className="mt-6">
                   <Alert className="mb-4 bg-primary/5 border-primary/20">
                     <Info className="h-4 w-4 text-primary" />
-                    <AlertTitle className="text-xs font-bold">Zero-Knowledge Alert</AlertTitle>
+                    <AlertTitle className="text-xs font-bold">Important</AlertTitle>
                     <AlertDescription className="text-[10px]">
-                      If you lose your Master Password, your data is gone forever. Sentinel never sees your keys.
+                      Sentinel is zero-knowledge. If you lose your Master Password, your data cannot be recovered. We do not store your password.
                     </AlertDescription>
                   </Alert>
-                  <Button
-                    className="w-full h-11 btn-gradient font-bold"
+                  <Button 
+                    className="w-full h-11 btn-gradient font-bold" 
                     onClick={() => handleAuth('signup')}
                     disabled={isLoading}
                   >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        {loadingText || 'Creating Vault...'}
-                      </>
-                    ) : (
-                      <>
-                        <ArrowRight className="w-4 h-4 mr-2" />
-                        Create Encrypted Vault
-                      </>
-                    )}
+                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowRight className="w-4 h-4 mr-2" />}
+                    Create Encrypted Vault
                   </Button>
                 </TabsContent>
               </Tabs>
             </CardContent>
             <CardFooter className="flex justify-center border-t py-4">
               <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-                AES-256-GCM + PBKDF2 (100k) Enabled
+                AES-256-GCM + PBKDF2 Enabled
               </p>
             </CardFooter>
           </Card>

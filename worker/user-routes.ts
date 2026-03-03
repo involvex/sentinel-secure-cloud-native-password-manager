@@ -2,50 +2,72 @@ import { Hono } from "hono";
 import type { Env } from './core-utils';
 import { UserEntity, VaultItemEntity } from "./entities";
 import { ok, bad, notFound } from './core-utils';
-import type { VaultItem } from "@shared/types";
+import type { VaultItem, User } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
+  // AUTH ENDPOINTS
+  app.post('/api/auth/signup', async (c) => {
+    const { username, passwordHash, salt } = await c.req.json();
+    if (!username || !passwordHash || !salt) return bad(c, 'Missing credentials');
+    // Check if user exists
+    const existing = await UserEntity.list(c.env);
+    if (existing.items.find(u => u.name === username)) return bad(c, 'User already exists');
+    const userId = crypto.randomUUID();
+    const user = await UserEntity.create(c.env, { 
+      id: userId, 
+      name: username, 
+      passwordHash, // Only used for auth check, not decryption
+      salt 
+    } as any);
+    return ok(c, user);
+  });
+  app.post('/api/auth/login', async (c) => {
+    const { username, passwordHash } = await c.req.json();
+    const users = await UserEntity.list(c.env);
+    const user = users.items.find(u => u.name === username) as any;
+    if (!user || user.passwordHash !== passwordHash) {
+      return bad(c, 'Invalid credentials');
+    }
+    return ok(c, user);
+  });
   // VAULT ENDPOINTS
   app.get('/api/vault', async (c) => {
+    const userId = c.req.header('X-User-Id');
+    if (!userId) return bad(c, 'Unauthorized');
     const page = await VaultItemEntity.list(c.env, c.req.query('cursor') ?? null, 100);
-    return ok(c, page);
+    // Filter by user ID in this phase
+    const filtered = page.items.filter(item => (item as any).userId === userId);
+    return ok(c, { items: filtered, next: page.next });
   });
   app.post('/api/vault', async (c) => {
+    const userId = c.req.header('X-User-Id');
+    if (!userId) return bad(c, 'Unauthorized');
     const data = await c.req.json() as VaultItem;
     if (!data.title) return bad(c, 'Title required');
-    // Support legacy passkeyData or new passkeys array
-    if (data.type === 'passkey') {
-      const hasCreds = (data.passkeys && data.passkeys.length > 0);
-      if (!hasCreds) return bad(c, 'At least one passkey credential is required');
-    }
-    const item = { ...data, id: crypto.randomUUID(), updatedAt: Date.now() };
+    const item = { 
+      ...data, 
+      id: crypto.randomUUID(), 
+      userId, // Scoping
+      updatedAt: Date.now() 
+    };
     return ok(c, await VaultItemEntity.create(c.env, item));
   });
-  // BULK IMPORT
-  app.post('/api/vault/bulk', async (c) => {
-    const items = await c.req.json() as VaultItem[];
-    if (!Array.isArray(items)) return bad(c, 'Expected array of items');
-    const results = await Promise.all(items.map(async (item) => {
-      const sanitized = {
-        ...item,
-        id: item.id || crypto.randomUUID(),
-        updatedAt: item.updatedAt || Date.now(),
-        // Migrate legacy single passkey to array if needed
-        passkeys: item.passkeys || []
-      };
-      return VaultItemEntity.create(c.env, sanitized);
-    }));
-    return ok(c, { count: results.length });
-  });
   app.put('/api/vault/:id', async (c) => {
+    const userId = c.req.header('X-User-Id');
     const id = c.req.param('id');
     const data = await c.req.json() as Partial<VaultItem>;
     const entity = new VaultItemEntity(c.env, id);
-    if (!await entity.exists()) return notFound(c);
+    const state = await entity.getState() as any;
+    if (!state.id) return notFound(c);
+    if (state.userId !== userId) return bad(c, 'Forbidden');
     await entity.patch({ ...data, updatedAt: Date.now() });
     return ok(c, await entity.getState());
   });
   app.delete('/api/vault/:id', async (c) => {
+    const userId = c.req.header('X-User-Id');
     const id = c.req.param('id');
+    const entity = new VaultItemEntity(c.env, id);
+    const state = await entity.getState() as any;
+    if (state.userId !== userId) return bad(c, 'Forbidden');
     return ok(c, { deleted: await VaultItemEntity.delete(c.env, id) });
   });
   // WEBAUTHN CHALLENGE
@@ -57,10 +79,5 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       .replace(/\//g, '_')
       .replace(/=/g, '');
     return ok(c, { challenge });
-  });
-  // USERS
-  app.get('/api/users', async (c) => {
-    await UserEntity.ensureSeed(c.env);
-    return ok(c, await UserEntity.list(c.env));
   });
 }
