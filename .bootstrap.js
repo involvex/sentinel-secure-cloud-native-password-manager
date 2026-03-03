@@ -87,7 +87,8 @@ function runSetupCommands() {
     "bun add @otplib/preset-default@^12.0.1",
     "bun add @simplewebauthn/browser@^9.0.0",
     "bun add @radix-ui/react-label",
-    "bun add lucide-react"
+    "bun add lucide-react",
+    "bun add @zxcvbn-ts/core @zxcvbn-ts/language-en"
 ];
     
     if (commands.length === 0) {
