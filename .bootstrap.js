@@ -84,7 +84,8 @@ function runSetupCommands() {
     "bun add @tanstack/react-virtual@^3.1.1",
     "bun add otplib @tanstack/react-virtual",
     "bun add @otplib/preset-default",
-    "bun add @otplib/preset-default@^12.0.1"
+    "bun add @otplib/preset-default@^12.0.1",
+    "bun add @simplewebauthn/browser@^9.0.0"
 ];
     
     if (commands.length === 0) {
