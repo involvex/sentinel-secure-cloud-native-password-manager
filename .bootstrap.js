@@ -85,7 +85,8 @@ function runSetupCommands() {
     "bun add otplib @tanstack/react-virtual",
     "bun add @otplib/preset-default",
     "bun add @otplib/preset-default@^12.0.1",
-    "bun add @simplewebauthn/browser@^9.0.0"
+    "bun add @simplewebauthn/browser@^9.0.0",
+    "bun add @radix-ui/react-label"
 ];
     
     if (commands.length === 0) {
