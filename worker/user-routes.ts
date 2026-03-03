@@ -12,6 +12,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.post('/api/vault', async (c) => {
     const data = await c.req.json() as VaultItem;
     if (!data.title) return bad(c, 'Title required');
+    if (data.type === 'passkey' && !data.passkeyData) return bad(c, 'Passkey data required');
     const item = { ...data, id: crypto.randomUUID(), updatedAt: Date.now() };
     return ok(c, await VaultItemEntity.create(c.env, item));
   });
@@ -26,6 +27,14 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.delete('/api/vault/:id', async (c) => {
     const id = c.req.param('id');
     return ok(c, { deleted: await VaultItemEntity.delete(c.env, id) });
+  });
+  // WEBAUTHN CHALLENGE
+  app.post('/api/auth/challenge', async (c) => {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    // Base64URL encode
+    const challenge = btoa(String.fromCharCode(...array)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    return ok(c, { challenge });
   });
   // USERS (legacy demo)
   app.get('/api/users', async (c) => {
