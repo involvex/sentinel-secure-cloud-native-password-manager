@@ -1,6 +1,6 @@
 # Sentinel Vault
 
-[![[cloudflarebutton]]](https://deploy.workers.cloudflare.com)
+[![[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/involvex/sentinel-secure-cloud-native-password-manager)]](https://deploy.workers.cloudflare.com)
 
 A production-ready full-stack application template built on Cloudflare Workers, featuring a React frontend with shadcn/ui, Hono backend, and Durable Objects for scalable entity storage. Demonstrates real-time chat boards, user management, and indexed listings with seamless edge deployment.
 
@@ -89,7 +89,7 @@ npx wrangler deploy
 ```
 
 **Instant Deploy**:
-[[cloudflarebutton]]
+[[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/involvex/sentinel-secure-cloud-native-password-manager)]
 
 **Custom Domain**: Update `wrangler.jsonc` and run `wrangler deploy --name your-app`.
 
