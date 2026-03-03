@@ -1,25 +1,58 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useVaultStore } from '@/lib/store';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { VaultItem } from '@shared/types';
 import { Button } from '@/components/ui/button';
-import { Copy, ExternalLink, ShieldCheck, Star, Edit, Trash2 } from 'lucide-react';
+import { ItemForm } from './ItemForm';
+import { 
+  Copy, ExternalLink, ShieldCheck, Star, Edit, Trash2, 
+  Check, ArrowLeft, MoreVertical, ShieldAlert
+} from 'lucide-react';
+import { 
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger 
+} from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 export function ItemDetail() {
   const selectedItemId = useVaultStore(s => s.selectedItemId);
+  const setSelectedItemId = useVaultStore(s => s.setSelectedItemId);
+  const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = useState(false);
+  const [copyState, setCopyState] = useState<Record<string, boolean>>({});
   const { data: itemsData } = useQuery({
     queryKey: ['vault-items'],
     queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
   });
   const item = itemsData?.items.find(i => i.id === selectedItemId);
+  const toggleFavorite = useMutation({
+    mutationFn: (fav: boolean) => api<VaultItem>(`/api/vault/${item?.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ favorite: fav })
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vault-items'] });
+      toast.success(item?.favorite ? 'Removed from favorites' : 'Added to favorites');
+    }
+  });
+  const deleteItem = useMutation({
+    mutationFn: () => api(`/api/vault/${item?.id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vault-items'] });
+      setSelectedItemId(null);
+      toast.success('Item deleted successfully');
+    }
+  });
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard`);
+    setCopyState(prev => ({ ...prev, [label]: true }));
+    toast.success(`${label} copied`);
+    setTimeout(() => setCopyState(prev => ({ ...prev, [label]: false })), 2000);
   };
   if (!item) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-12 text-center">
+      <div className="h-full flex flex-col items-center justify-center p-12 text-center bg-background/30">
         <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-6">
           <ShieldCheck className="w-8 h-8 text-muted-foreground" />
         </div>
@@ -29,75 +62,129 @@ export function ItemDetail() {
     );
   }
   return (
-    <div className="h-full flex flex-col bg-background/50">
-      <header className="p-8 border-b border-border/50 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xl uppercase">
+    <div className="h-full flex flex-col bg-background">
+      <header className="p-6 md:p-8 border-b border-border/50 flex justify-between items-center bg-card/30 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-12 h-12 shrink-0 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xl uppercase">
             {item.title[0]}
           </div>
-          <div>
-            <h2 className="text-2xl font-bold">{item.title}</h2>
-            <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">{item.type}</span>
+          <div className="min-w-0">
+            <h2 className="text-2xl font-bold truncate">{item.title}</h2>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{item.type}</span>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" className={item.favorite ? "text-orange-500 fill-orange-500" : ""}>
+        <div className="flex gap-2 shrink-0">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className={item.favorite ? "text-orange-500 fill-orange-500" : ""}
+            onClick={() => toggleFavorite.mutate(!item.favorite)}
+          >
             <Star className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="icon">
+          <Button variant="outline" size="icon" onClick={() => setIsEditing(!isEditing)}>
             <Edit className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="icon" className="text-destructive">
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="icon" className="text-destructive hover:bg-destructive/10">
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                  <ShieldAlert className="w-6 h-6 text-destructive" />
+                </div>
+                <AlertDialogTitle>Delete this item?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This secret will be permanently removed from your vault.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => deleteItem.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Confirm Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto p-8 max-w-3xl">
-        <div className="space-y-8">
-          {item.username && (
-            <div className="group">
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">Username</label>
-              <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border group-hover:border-primary/30 transition-colors">
-                <span className="font-mono text-lg">{item.username}</span>
-                <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.username!, 'Username')}>
-                  <Copy className="w-4 h-4" />
+      <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        <AnimatePresence mode="wait">
+          {isEditing ? (
+            <motion.div 
+              key="edit"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="max-w-2xl mx-auto"
+            >
+              <div className="mb-6 flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to Details
                 </Button>
               </div>
-            </div>
-          )}
-          {item.password && (
-            <div className="group">
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">Password</label>
-              <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border group-hover:border-primary/30 transition-colors">
-                <span className="font-mono text-lg tracking-[0.3em]">••••••••••••</span>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.password!, 'Password')}>
-                    <Copy className="w-4 h-4" />
-                  </Button>
+              <ItemForm 
+                initialData={item} 
+                onSuccess={() => setIsEditing(false)} 
+                onCancel={() => setIsEditing(false)} 
+              />
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="view"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="max-w-2xl mx-auto space-y-8"
+            >
+              {item.username && (
+                <div className="space-y-2 group">
+                  <label className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                    Username
+                  </label>
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border group-hover:border-primary/20 transition-all">
+                    <span className="font-mono text-lg">{item.username}</span>
+                    <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.username!, 'Username')}>
+                      {copyState['Username'] ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </div>
+              )}
+              {item.password && (
+                <div className="space-y-2 group">
+                  <label className="text-sm font-semibold text-muted-foreground">Password</label>
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border group-hover:border-primary/20 transition-all">
+                    <span className="font-mono text-lg tracking-[0.3em]">••••••••••••</span>
+                    <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.password!, 'Password')}>
+                      {copyState['Password'] ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {item.url && (
+                <div className="space-y-2 group">
+                  <label className="text-sm font-semibold text-muted-foreground">Website</label>
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border group-hover:border-primary/20 transition-all">
+                    <span className="text-lg truncate pr-4 text-indigo-500 font-medium">{item.url}</span>
+                    <Button variant="ghost" size="icon" asChild>
+                      <a href={item.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a>
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {item.notes && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Secure Notes</label>
+                  <div className="p-5 rounded-xl bg-secondary/30 border border-border whitespace-pre-wrap leading-relaxed text-foreground/90">
+                    {item.notes}
+                  </div>
+                </div>
+              )}
+            </motion.div>
           )}
-          {item.url && (
-            <div className="group">
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">Website</label>
-              <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border group-hover:border-primary/30 transition-colors">
-                <span className="text-lg truncate pr-4 text-blue-500">{item.url}</span>
-                <Button variant="ghost" size="icon" asChild>
-                  <a href={item.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a>
-                </Button>
-              </div>
-            </div>
-          )}
-          {item.notes && (
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">Notes</label>
-              <div className="p-4 rounded-xl bg-secondary/30 border border-border whitespace-pre-wrap leading-relaxed">
-                {item.notes}
-              </div>
-            </div>
-          )}
-        </div>
+        </AnimatePresence>
       </div>
     </div>
   );
