@@ -90,7 +90,8 @@ function runSetupCommands() {
     "bun add lucide-react",
     "bun add @zxcvbn-ts/core @zxcvbn-ts/language-en",
     "bun add html5-qrcode qrcode.react",
-    "bun install @zxcvbn-ts/language-common"
+    "bun install @zxcvbn-ts/language-common",
+    "bun add @zxcvbn-ts/language-common @zxcvbn-ts/language-en @zxcvbn-ts/core"
 ];
     
     if (commands.length === 0) {
