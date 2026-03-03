@@ -1,12 +1,14 @@
 import { authenticator } from '@otplib/preset-default';
 /**
  * Generates a TOTP code and returns the seconds remaining until refresh.
- * Standard TOTP (Time-based One-Time Password) follows RFC 6238 using @otplib/preset-default authenticator.
- * It uses a 30-second window (step) to derive a 6-digit code from a Base32 secret (Google Authenticator compatible).
+ * Standard TOTP (Time-based One-Time Password) follows RFC 6238.
+ * It uses a 30-second window (step) to derive a 6-digit code from a Base32 secret.
  */
 export function generateTOTP(secret: string): { code: string; secondsRemaining: number } {
   try {
-    const cleanSecret = secret?.trim();
+    const rawSecret = parseOtpAuthUri(secret) || secret;
+    // Normalize secret: Remove spaces and force uppercase as per RFC 4648 / RFC 6238
+    const cleanSecret = rawSecret?.replace(/\s+/g, '').toUpperCase().trim();
     if (!cleanSecret || cleanSecret.length < 4) {
       return { code: '------', secondsRemaining: 30 };
     }
@@ -22,17 +24,30 @@ export function generateTOTP(secret: string): { code: string; secondsRemaining: 
 }
 /**
  * Parses an otpauth:// URI to extract the secret or returns raw string if already a secret.
+ * Handles complex URIs provided by services like Google, GitHub, and Discord.
  */
 export function parseOtpAuthUri(uri: string): string | null {
   try {
     if (!uri) return null;
     const trimmed = uri.trim();
-    if (trimmed.startsWith('otpauth:')) {
+    // Check if it's a URI
+    if (trimmed.toLowerCase().startsWith('otpauth:')) {
       const url = new URL(trimmed);
-      return url.searchParams.get('secret');
+      // The secret is stored in the 'secret' query parameter
+      const secret = url.searchParams.get('secret');
+      return secret;
     }
+    // If it contains characters often found in Base32 but not a full URI
+    // we return the trimmed string to be cleaned by generateTOTP
     return trimmed;
-  } catch {
+  } catch (e) {
+    // If URL parsing fails but it starts with otpauth, try manual split
+    if (uri.includes('secret=')) {
+      const parts = uri.split('secret=');
+      if (parts[1]) {
+        return parts[1].split('&')[0];
+      }
+    }
     return null;
   }
 }

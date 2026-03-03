@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
   Copy, Star, Edit, ArrowLeft, ShieldCheck, Fingerprint, Loader2, Folder,
-  Clock, Hash, ShieldAlert, Check, Laptop, Usb
+  Clock, Check, Laptop, Usb, Eye, EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,6 +21,7 @@ export function ItemDetail() {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [copyState, setCopyState] = useState<Record<string, boolean>>({});
   const [totp, setTotp] = useState({ code: '------', secondsRemaining: 30 });
   const { data: itemsData } = useQuery({
@@ -39,6 +40,7 @@ export function ItemDetail() {
   }, [item?.totpSecret, item?.id]);
   useEffect(() => {
     setIsEditing(false);
+    setShowPassword(false);
   }, [selectedItemId]);
   const toggleFavorite = useMutation({
     mutationFn: (fav: boolean) => api<VaultItem>(`/api/vault/${item?.id}`, {
@@ -54,9 +56,8 @@ export function ItemDetail() {
     try {
       const { challenge } = await api<{ challenge: string }>('/api/auth/challenge', { method: 'POST' });
       await authenticatePasskey(credIds, challenge);
-      // Update lastUsedAt for the specific key
       if (credentialId) {
-        const updatedPasskeys = item?.passkeys?.map(pk => 
+        const updatedPasskeys = item?.passkeys?.map(pk =>
           pk.credentialId === credentialId ? { ...pk, lastUsedAt: Date.now() } : pk
         );
         await api(`/api/vault/${item?.id}`, {
@@ -164,10 +165,20 @@ export function ItemDetail() {
                   <div className="p-5 rounded-2xl border bg-secondary/20 hover:bg-secondary/30 transition-colors group">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Credential</Label>
                     <div className="flex justify-between items-center mt-1">
-                      <span className="font-mono tracking-[0.4em] text-lg select-none">••••••••</span>
-                      <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.password!, 'Password')} className="rounded-full">
-                        {copyState['Password'] ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                      </Button>
+                      <span className={cn(
+                        "font-mono tracking-[0.4em] text-lg select-none",
+                        !showPassword && "opacity-50"
+                      )}>
+                        {showPassword ? item.password : '••••••••'}
+                      </span>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => setShowPassword(!showPassword)} className="rounded-full">
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.password!, 'Password')} className="rounded-full">
+                          {copyState['Password'] ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -180,7 +191,7 @@ export function ItemDetail() {
                   <div className="flex justify-between items-center relative z-10">
                     <Label className="text-xs font-bold uppercase tracking-widest text-primary">2FA Security Token</Label>
                     <Badge variant="outline" className={cn(
-                      "font-mono bg-background border-primary/20 px-3",
+                      "font-mono bg-background border-primary/20 px-3 transition-colors duration-300",
                       totp.secondsRemaining < 5 ? "text-destructive border-destructive/50" : "text-primary"
                     )}>
                       {totp.secondsRemaining}s
@@ -195,7 +206,10 @@ export function ItemDetail() {
                   </Button>
                   <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-2">
                     <motion.div
-                      className="h-full bg-primary"
+                      className={cn(
+                        "h-full transition-colors duration-300",
+                        totp.secondsRemaining < 5 ? "bg-destructive" : "bg-primary"
+                      )}
                       initial={false}
                       animate={{ width: `${(totp.secondsRemaining / 30) * 100}%` }}
                       transition={{ ease: "linear", duration: 1 }}

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, Key, ShieldCheck, Globe, CreditCard, FolderPlus, Tag, X, Fingerprint } from 'lucide-react';
+import { Loader2, ShieldCheck, X, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GeneratorTool } from './GeneratorTool';
 import { PasskeyManager } from './PasskeyManager';
 import { VaultItem, VaultItemType } from '@shared/types';
@@ -116,15 +117,15 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
         </div>
         {selectedType === 'passkey' && (
           <div className="pt-2 border-t mt-4">
-            <PasskeyManager 
-              passkeys={currentPasskeys} 
-              title={title} 
-              onChange={(pk) => setValue('passkeys', pk)} 
+            <PasskeyManager
+              passkeys={currentPasskeys}
+              title={title}
+              onChange={(pk) => setValue('passkeys', pk)}
             />
           </div>
         )}
         {selectedType === 'login' && (
-          <div className="space-y-4 pt-2">
+          <div className="space-y-4 pt-2 border-t mt-4">
             <div className="space-y-2">
               <Label>Username</Label>
               <Input {...register('username')} className="bg-secondary/30" placeholder="Email or Username" />
@@ -135,13 +136,33 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
                 <Input {...register('password')} className="flex-1 bg-secondary/30" type="password" placeholder="••••••••" />
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon"><ShieldCheck className="w-4 h-4" /></Button>
+                    <Button type="button" variant="outline" size="icon"><ShieldCheck className="w-4 h-4" /></Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-80 p-0" align="end">
                     <GeneratorTool onUse={(pw) => setValue('password', pw)} />
                   </PopoverContent>
                 </Popover>
               </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label>Two-Step Verification (TOTP)</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs text-xs">Enter your 2FA secret key (Base32) or an otpauth:// URL. Sentinel will automatically generate codes.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Input 
+                {...register('totpSecret')} 
+                className="bg-secondary/30 font-mono text-xs" 
+                placeholder="e.g. JBSWY3DPEHPK3PXP" 
+              />
             </div>
           </div>
         )}
