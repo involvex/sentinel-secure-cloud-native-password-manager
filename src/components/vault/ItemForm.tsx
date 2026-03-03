@@ -25,7 +25,7 @@ const schema = z.object({
   notes: z.string().optional(),
   folder: z.string().optional(),
   favorite: z.boolean(),
-  tags: z.array(z.string()).default([]),
+  tags: z.array(z.string()),
 });
 type FormValues = z.infer<typeof schema>;
 interface ItemFormProps {
@@ -75,6 +75,9 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
       toast.error(err.message);
     }
   });
+  const onSubmit = (data: FormValues) => {
+    mutation.mutate(data);
+  };
   const addTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -89,7 +92,7 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
     setValue('tags', currentTags.filter(t => t !== tag));
   };
   return (
-    <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
@@ -125,14 +128,14 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
           <div className="space-y-2">
             <Label>Tags</Label>
             <div className="relative">
-              <Input 
-                className="pl-9 bg-secondary/30" 
-                placeholder="Press Enter to add" 
+              <Input
+                className="pl-9 bg-secondary/30"
+                placeholder="Press Enter to add"
                 onKeyDown={addTag}
               />
               <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div className="flex flex-wrap gap-1.5 mt-2 min-h-[1.5rem]">
               {currentTags.map(tag => (
                 <Badge key={tag} variant="secondary" className="pl-2 pr-1 py-0.5 gap-1 text-[10px] uppercase font-bold bg-primary/5 border border-primary/10">
                   {tag}

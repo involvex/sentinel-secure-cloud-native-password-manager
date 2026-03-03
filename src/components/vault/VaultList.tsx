@@ -17,7 +17,7 @@ function HighlightedText({ text, highlight }: { text: string; highlight: string 
   const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
   return (
     <>
-      {parts.map((part, i) => 
+      {parts.map((part, i) =>
         part.toLowerCase() === highlight.toLowerCase() ? (
           <mark key={i} className="bg-primary/20 text-foreground px-0.5 rounded-sm">
             {part}
@@ -41,11 +41,11 @@ export function VaultList() {
     queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
   });
   const parentRef = useRef<HTMLDivElement>(null);
-  const items = data?.items ?? [];
   const filteredItems = useMemo(() => {
+    const items = data?.items ?? [];
     return items.filter(item => {
       const query = searchQuery.toLowerCase();
-      const matchesSearch = !query || 
+      const matchesSearch = !query ||
                           item.title.toLowerCase().includes(query) ||
                           (item.username?.toLowerCase().includes(query)) ||
                           (item.url?.toLowerCase().includes(query));
@@ -59,12 +59,11 @@ export function VaultList() {
       } else if (['login', 'card', 'note'].includes(activeFilter)) {
         matchesFilter = item.type === activeFilter;
       } else {
-        // Assume activeFilter is a folder name
         matchesFilter = item.folder === activeFilter;
       }
       return matchesSearch && matchesFilter;
     }).sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [items, searchQuery, activeFilter, activeTag]);
+  }, [data?.items, searchQuery, activeFilter, activeTag]);
   const virtualizer = useVirtualizer({
     count: filteredItems.length,
     getScrollElement: () => parentRef.current,
@@ -121,14 +120,18 @@ export function VaultList() {
               ))}
             </div>
           ) : filteredItems.length === 0 ? (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4"
             >
-              <div className="w-16 h-16 rounded-3xl bg-secondary/50 flex items-center justify-center">
+              <motion.div 
+                animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.8, 0.5] }}
+                transition={{ repeat: Infinity, duration: 3 }}
+                className="w-16 h-16 rounded-3xl bg-secondary/50 flex items-center justify-center"
+              >
                 <ShieldAlert className="w-8 h-8 text-muted-foreground/50" />
-              </div>
+              </motion.div>
               <div className="max-w-[200px]">
                 <p className="font-bold text-muted-foreground">Empty Vault</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">Try adjusting your filters or adding a new secret.</p>
@@ -201,7 +204,7 @@ export function VaultList() {
                       {item.folder && (
                         <span className={cn(
                           "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-tighter border",
-                          isSelected ? "bg-background/20 border-white/20" : "bg-secondary border-border"
+                          isSelected ? "bg-background/20 border-white/20" : "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400"
                         )}>
                           <Folder className="w-2.5 h-2.5" />
                           {item.folder}
@@ -210,7 +213,7 @@ export function VaultList() {
                       {(item.tags || []).slice(0, 2).map(tag => (
                         <span key={tag} className={cn(
                           "px-1.5 py-0.5 rounded text-[9px] uppercase font-bold border",
-                          isSelected ? "bg-background/10 border-white/10" : "bg-primary/5 border-primary/10"
+                          isSelected ? "bg-background/10 border-white/10" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                         )}>
                           #{tag}
                         </span>
