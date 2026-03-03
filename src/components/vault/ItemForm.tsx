@@ -2,7 +2,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, Key, ShieldCheck, Globe, CreditCard, FileText } from 'lucide-react';
+import { Loader2, Key, ShieldCheck, Globe, CreditCard, FolderPlus, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,8 +19,10 @@ const schema = z.object({
   title: z.string().min(1, 'Title is required'),
   username: z.string().optional(),
   password: z.string().optional(),
+  totpSecret: z.string().optional(),
   url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   notes: z.string().optional(),
+  folder: z.string().optional(),
   favorite: z.boolean().default(false),
 });
 type FormValues = z.infer<typeof schema>;
@@ -33,10 +35,16 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
   const queryClient = useQueryClient();
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: initialData || {
-      type: 'login',
-      title: '',
-      favorite: false,
+    defaultValues: {
+      type: initialData?.type ?? 'login',
+      title: initialData?.title ?? '',
+      username: initialData?.username ?? '',
+      password: initialData?.password ?? '',
+      totpSecret: initialData?.totpSecret ?? '',
+      url: initialData?.url ?? '',
+      notes: initialData?.notes ?? '',
+      folder: initialData?.folder ?? '',
+      favorite: initialData?.favorite ?? false,
     },
   });
   const selectedType = watch('type');
@@ -68,8 +76,8 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Item Type</Label>
-            <Select 
-              defaultValue={selectedType} 
+            <Select
+              defaultValue={selectedType}
               onValueChange={(val) => setValue('type', val as VaultItemType)}
             >
               <SelectTrigger>
@@ -88,6 +96,13 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
             {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
           </div>
         </div>
+        <div className="space-y-2">
+          <Label>Folder</Label>
+          <div className="relative">
+            <Input {...register('folder')} className="pl-9" placeholder="Personal, Work, Finance..." />
+            <FolderPlus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          </div>
+        </div>
         {selectedType === 'login' && (
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
@@ -101,7 +116,7 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
               <Label>Password</Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Input {...register('password')} className="pl-9" type="password" placeholder="��•••••••" />
+                  <Input {...register('password')} className="pl-9" type="password" placeholder="••••••••" />
                   <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 </div>
                 <Popover>
@@ -117,6 +132,10 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
               </div>
             </div>
             <div className="space-y-2">
+              <Label>Two-Factor Secret (TOTP)</Label>
+              <Input {...register('totpSecret')} placeholder="JBSWY3DPEHPK3PXP" />
+            </div>
+            <div className="space-y-2">
               <Label>Website URL</Label>
               <Input {...register('url')} placeholder="https://example.com" />
               {errors.url && <p className="text-xs text-destructive">{errors.url.message}</p>}
@@ -127,15 +146,15 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
           <div className="space-y-4 pt-2">
              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 flex items-center gap-3">
                <CreditCard className="w-5 h-5 text-primary" />
-               <p className="text-sm text-muted-foreground">Store card numbers or details in the Notes field for maximum privacy.</p>
+               <p className="text-sm text-muted-foreground font-medium">Store card numbers or details in the Notes field for maximum privacy.</p>
              </div>
           </div>
         )}
         <div className="space-y-2">
           <Label>Notes</Label>
-          <Textarea 
-            {...register('notes')} 
-            placeholder="Add any additional details here..." 
+          <Textarea
+            {...register('notes')}
+            placeholder="Add any additional details here..."
             className="min-h-[120px] resize-none"
           />
         </div>

@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVaultStore } from '@/lib/store';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { generateTOTP } from '@/lib/totp-utils';
 import type { VaultItem } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { ItemForm } from './ItemForm';
-import { 
-  Copy, ExternalLink, ShieldCheck, Star, Edit, Trash2, 
-  Check, ArrowLeft, MoreVertical, ShieldAlert
+import { Badge } from '@/components/ui/badge';
+import {
+  Copy, ExternalLink, ShieldCheck, Star, Edit, Trash2,
+  Check, ArrowLeft, ShieldAlert, Clock
 } from 'lucide-react';
-import { 
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger 
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,11 +23,22 @@ export function ItemDetail() {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [copyState, setCopyState] = useState<Record<string, boolean>>({});
+  const [totp, setTotp] = useState({ code: '', secondsRemaining: 30 });
   const { data: itemsData } = useQuery({
     queryKey: ['vault-items'],
     queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
   });
   const item = itemsData?.items.find(i => i.id === selectedItemId);
+  useEffect(() => {
+    if (item?.totpSecret) {
+      const updateTotp = () => {
+        setTotp(generateTOTP(item.totpSecret!));
+      };
+      updateTotp();
+      const interval = setInterval(updateTotp, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [item?.totpSecret]);
   const toggleFavorite = useMutation({
     mutationFn: (fav: boolean) => api<VaultItem>(`/api/vault/${item?.id}`, {
       method: 'PUT',
@@ -56,7 +69,7 @@ export function ItemDetail() {
         <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-6">
           <ShieldCheck className="w-8 h-8 text-muted-foreground" />
         </div>
-        <h3 className="text-xl font-semibold mb-2">No item selected</h3>
+        <h3 className="text-xl font-semibold mb-2 text-foreground">No item selected</h3>
         <p className="text-muted-foreground max-w-xs">Select an item from the list to view its secure details.</p>
       </div>
     );
@@ -69,15 +82,18 @@ export function ItemDetail() {
             {item.title[0]}
           </div>
           <div className="min-w-0">
-            <h2 className="text-2xl font-bold truncate">{item.title}</h2>
+            <div className="flex items-center gap-2">
+               <h2 className="text-2xl font-bold truncate">{item.title}</h2>
+               {item.folder && <Badge variant="secondary" className="font-semibold text-[10px] uppercase">{item.folder}</Badge>}
+            </div>
             <span className="text-xs uppercase tracking-widest text-muted-foreground font-bold">{item.type}</span>
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            className={item.favorite ? "text-orange-500 fill-orange-500" : ""}
+          <Button
+            variant="outline"
+            size="icon"
+            className={item.favorite ? "text-orange-500 fill-orange-500 hover:text-orange-600" : ""}
             onClick={() => toggleFavorite.mutate(!item.favorite)}
           >
             <Star className="w-4 h-4" />
@@ -114,7 +130,7 @@ export function ItemDetail() {
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
         <AnimatePresence mode="wait">
           {isEditing ? (
-            <motion.div 
+            <motion.div
               key="edit"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -126,24 +142,48 @@ export function ItemDetail() {
                   <ArrowLeft className="w-4 h-4 mr-2" /> Back to Details
                 </Button>
               </div>
-              <ItemForm 
-                initialData={item} 
-                onSuccess={() => setIsEditing(false)} 
-                onCancel={() => setIsEditing(false)} 
+              <ItemForm
+                initialData={item}
+                onSuccess={() => setIsEditing(false)}
+                onCancel={() => setIsEditing(false)}
               />
             </motion.div>
           ) : (
-            <motion.div 
+            <motion.div
               key="view"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="max-w-2xl mx-auto space-y-8"
             >
+              {item.totpSecret && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                    Two-Factor Code
+                  </label>
+                  <div className="p-6 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-between group">
+                    <div className="flex items-baseline gap-4">
+                      <motion.span 
+                        key={totp.code}
+                        initial={{ opacity: 0.5, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="font-mono text-4xl font-bold tracking-widest text-primary"
+                      >
+                        {totp.code.slice(0, 3)} {totp.code.slice(3)}
+                      </motion.span>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span className="text-xs font-bold font-mono">{totp.secondsRemaining}s</span>
+                      </div>
+                    </div>
+                    <Button variant="secondary" size="icon" className="rounded-xl" onClick={() => copyToClipboard(totp.code, '2FA Code')}>
+                       {copyState['2FA Code'] ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
               {item.username && (
                 <div className="space-y-2 group">
-                  <label className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                    Username
-                  </label>
+                  <label className="text-sm font-semibold text-muted-foreground">Username</label>
                   <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border group-hover:border-primary/20 transition-all">
                     <span className="font-mono text-lg">{item.username}</span>
                     <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.username!, 'Username')}>
@@ -167,7 +207,7 @@ export function ItemDetail() {
                 <div className="space-y-2 group">
                   <label className="text-sm font-semibold text-muted-foreground">Website</label>
                   <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border group-hover:border-primary/20 transition-all">
-                    <span className="text-lg truncate pr-4 text-indigo-500 font-medium">{item.url}</span>
+                    <span className="text-lg truncate pr-4 text-primary/80 hover:text-primary transition-colors font-medium">{item.url}</span>
                     <Button variant="ghost" size="icon" asChild>
                       <a href={item.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a>
                     </Button>

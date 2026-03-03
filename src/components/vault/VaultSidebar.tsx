@@ -1,6 +1,9 @@
 import React from "react";
-import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Trash2, Plus, Zap } from "lucide-react";
+import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Trash2, Plus, Zap, Folder } from "lucide-react";
 import { useVaultStore } from "@/lib/store";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api-client";
+import type { VaultItem } from "@shared/types";
 import {
   Sidebar,
   SidebarContent,
@@ -19,12 +22,17 @@ export function VaultSidebar() {
   const activeFilter = useVaultStore(s => s.activeFilter);
   const setActiveFilter = useVaultStore(s => s.setActiveFilter);
   const setCreateDialogOpen = useVaultStore(s => s.setCreateDialogOpen);
+  const { data } = useQuery({
+    queryKey: ['vault-items'],
+    queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
+  });
   const categories = [
     { id: 'all', label: 'All Items', icon: LayoutGrid },
     { id: 'login', label: 'Logins', icon: Key },
     { id: 'card', label: 'Cards', icon: CreditCard },
     { id: 'note', label: 'Secure Notes', icon: FileText },
   ];
+  const folders = Array.from(new Set(data?.items.map(i => i.folder).filter(Boolean))) as string[];
   return (
     <>
       <Sidebar variant="inset" className="border-r border-border/50">
@@ -38,8 +46,8 @@ export function VaultSidebar() {
         </SidebarHeader>
         <SidebarContent className="px-3">
           <div className="mb-4 mt-2 px-1">
-            <Button 
-              className="w-full justify-start gap-2 h-11 btn-gradient" 
+            <Button
+              className="w-full justify-start gap-2 h-11 btn-gradient"
               size="sm"
               onClick={() => setCreateDialogOpen(true)}
             >
@@ -63,6 +71,25 @@ export function VaultSidebar() {
               ))}
             </SidebarMenu>
           </SidebarGroup>
+          {folders.length > 0 && (
+            <SidebarGroup>
+              <SidebarGroupLabel className="px-3">Folders</SidebarGroupLabel>
+              <SidebarMenu>
+                {folders.map((folder) => (
+                  <SidebarMenuItem key={folder}>
+                    <SidebarMenuButton
+                      isActive={activeFilter === folder}
+                      onClick={() => setActiveFilter(folder as any)}
+                      className="h-10 px-3 transition-colors"
+                    >
+                      <Folder className="w-4 h-4" />
+                      <span>{folder}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          )}
           <SidebarGroup>
             <SidebarGroupLabel className="px-3">Filters</SidebarGroupLabel>
             <SidebarMenu>
@@ -96,7 +123,7 @@ export function VaultSidebar() {
                   <span>Password Generator</span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent side="right" align="end" className="w-80 p-0 shadow-2xl">
+              <PopoverContent side="right" align="end" className="w-80 p-0 shadow-2xl border-none">
                 <div className="p-4 border-b border-border font-bold">Quick Generator</div>
                 <GeneratorTool />
               </PopoverContent>

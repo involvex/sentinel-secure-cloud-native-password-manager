@@ -13,6 +13,8 @@ export interface VaultItem {
   url?: string;
   notes?: string;
   folder?: string;
+  tags?: string[];
+  totpSecret?: string;
   favorite: boolean;
   updatedAt: number;
 }
