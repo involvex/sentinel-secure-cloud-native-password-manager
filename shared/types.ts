@@ -28,26 +28,14 @@ export interface CustomField {
   label: string;
   value: string;
   isSecret: boolean;
-  isSecret: boolean;
 }
 export type CardType = 'visa' | 'mastercard' | 'amex' | 'discover' | 'jcb' | 'other';
-export interface CreditCardData {
-  number: string;
-  holderName: string;
-  expiryDate: string; // MM/YY
-  cvv: string;
-  cardType: CardType;
-}
-export interface PassportData {
-  number: string;
-  issuingCountry: string;
-  expiryDate: string;
-  type: string;
-}
 export interface VaultItem {
   id: string;
   type: VaultItemType;
   title: string;
+  favorite: boolean;
+  updatedAt: number;
   username?: string;
   password?: string;
   url?: string;
@@ -58,12 +46,15 @@ export interface VaultItem {
   passkeys?: PasskeyData[];
   isBreached?: boolean;
   breachDate?: number;
-  favorite: boolean;
-  updatedAt: number;
-  // Type-specific fields
+  // Flat Type-specific fields (Simplified for Zero-Knowledge Logic)
   aliasEmail?: string;
-  cardDetails?: CreditCardData;
-  passportDetails?: PassportData;
+  cardNumber?: string;
+  cardholderName?: string;
+  expiryDate?: string;
+  cvv?: string;
+  cardType?: CardType;
+  passportNumber?: string;
+  issuingCountry?: string;
   identityName?: string;
   address?: string;
   dob?: string;
@@ -72,7 +63,6 @@ export interface VaultItem {
   wifiPassword?: string;
   sshHost?: string;
   sshKey?: string;
-  passportNumber?: string;
   customFields?: CustomField[];
 }
 export interface User {

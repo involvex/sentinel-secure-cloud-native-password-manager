@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { GeneratorTool } from './GeneratorTool';
-import { VaultItem, VaultItemType } from '@shared/types';
+import { VaultItem } from '@shared/types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -45,13 +45,16 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 export function ItemForm({ initialData, onSuccess, onCancel }: { initialData?: VaultItem; onSuccess?: () => void; onCancel?: () => void }) {
   const queryClient = useQueryClient();
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, watch, setValue, control, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       type: (initialData?.type as FormValues['type']) ?? 'login',
       title: initialData?.title ?? '',
       username: initialData?.username ?? '',
       password: initialData?.password ?? '',
+      url: initialData?.url ?? '',
+      notes: initialData?.notes ?? '',
+      folder: initialData?.folder ?? '',
       favorite: initialData?.favorite ?? false,
       tags: initialData?.tags ?? [],
       ssid: initialData?.ssid ?? '',
@@ -62,19 +65,17 @@ export function ItemForm({ initialData, onSuccess, onCancel }: { initialData?: V
       address: initialData?.address ?? '',
       sshHost: initialData?.sshHost ?? '',
       sshKey: initialData?.sshKey ?? '',
-      cardNumber: (initialData as any)?.cardNumber ?? '',
-      cardholderName: (initialData as any)?.cardholderName ?? '',
-      expiryDate: (initialData as any)?.expiryDate ?? '',
-      cvv: (initialData as any)?.cvv ?? '',
+      cardNumber: initialData?.cardNumber ?? '',
+      cardholderName: initialData?.cardholderName ?? '',
+      expiryDate: initialData?.expiryDate ?? '',
+      cvv: initialData?.cvv ?? '',
       passportNumber: initialData?.passportNumber ?? '',
-      issuingCountry: (initialData as any)?.issuingCountry ?? '',
+      issuingCountry: initialData?.issuingCountry ?? '',
       aliasEmail: initialData?.aliasEmail ?? (initialData?.type === 'alias' ? initialData.aliasEmail : `sentinel_${Math.random().toString(36).slice(2, 7)}@vault.internal`),
     },
   });
-
-  const urlValue = useWatch({ control: props.control, name: 'url' });
-  const titleValue = useWatch({ control: props.control, name: 'title' });
-
+  const urlValue = useWatch({ control, name: 'url' });
+  const titleValue = useWatch({ control, name: 'title' });
   React.useEffect(() => {
     if (urlValue && (!titleValue || titleValue === '')) {
       const domain = getDomainFromUrl(urlValue);
@@ -83,17 +84,16 @@ export function ItemForm({ initialData, onSuccess, onCancel }: { initialData?: V
         setValue('title', suggested);
       }
     }
-  }, [urlValue, setValue]);
-
+  }, [urlValue, setValue, titleValue]);
   const selectedType = watch('type');
   const mutation = useMutation({
-    mutationFn: (values: FormValues) => initialData?.id 
-      ? api<VaultItem>(`/api/vault/${initialData.id}`, { method: 'PUT', body: JSON.stringify(values) }) 
+    mutationFn: (values: FormValues) => initialData?.id
+      ? api<VaultItem>(`/api/vault/${initialData.id}`, { method: 'PUT', body: JSON.stringify(values) })
       : api<VaultItem>('/api/vault', { method: 'POST', body: JSON.stringify(values) }),
-    onSuccess: () => { 
-      queryClient.invalidateQueries({ queryKey: ['vault-items'] }); 
-      toast.success('Saved'); 
-      onSuccess?.(); 
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vault-items'] });
+      toast.success('Saved');
+      onSuccess?.();
     },
     onError: (err: any) => toast.error(err.message)
   });

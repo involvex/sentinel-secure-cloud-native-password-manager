@@ -1,6 +1,19 @@
 import { ApiResponse, VaultItem } from "../../shared/types"
 import { useAuthStore } from "./auth-store"
 import { encryptData, decryptData } from "./crypto-utils"
+const SECRET_FIELDS = [
+  'password',
+  'totpSecret',
+  'notes',
+  'wifiPassword',
+  'sshKey',
+  'passportNumber',
+  'address',
+  'phone',
+  'cardNumber',
+  'cvv',
+  'identityName'
+];
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const auth = useAuthStore.getState();
   const headers = new Headers(init?.headers);
@@ -14,20 +27,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     try {
       const data = JSON.parse(body as string);
       const encryptedData = { ...data };
-      const secretFields = [
-        'password', 
-        'totpSecret', 
-        'notes', 
-        'wifiPassword', 
-        'sshKey', 
-        'passportNumber', 
-        'address', 
-        'phone',
-        'number', // credit card or passport number
-        'cvv',
-        'identityName'
-      ];
-      for (const field of secretFields) {
+      for (const field of SECRET_FIELDS) {
         if (data[field] && typeof data[field] === 'string' && data[field].length > 0) {
           encryptedData[field] = await encryptData(data[field], auth.masterKey);
         }
@@ -54,21 +54,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 async function decryptVaultItem(item: VaultItem, key: CryptoKey): Promise<VaultItem> {
   const decrypted = { ...item };
-  const secretFields = [
-    'password', 
-    'totpSecret', 
-    'notes', 
-    'wifiPassword', 
-    'sshKey', 
-    'passportNumber', 
-    'address', 
-    'phone',
-    'number',
-    'cvv',
-    'identityName'
-  ];
   try {
-    for (const field of secretFields) {
+    for (const field of SECRET_FIELDS) {
       const val = (item as any)[field];
       // Decryption heuristic: Encrypted blobs in our system are base64-ish and typically > 20 chars
       if (val && typeof val === 'string' && val.length > 20) {

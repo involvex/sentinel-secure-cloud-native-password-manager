@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  Shield, LayoutGrid, Key, CreditCard, FileText, Star, Plus, Zap, Folder, Globe,
+  Shield, Key, CreditCard, FileText, Star, Plus, Zap, Folder, Globe,
   LogOut, Share2, UserCircle, Trash2, Activity, UserPlus, ShieldCheck, User, ScanFace
 } from "lucide-react";
 import { useVaultStore } from "@/lib/store";
@@ -56,7 +56,6 @@ export function VaultSidebar() {
     navigate('/');
   };
   const handleProfileSwitch = () => {
-    // Simulated: return to landing/login for multi-profile selection
     clearAuth();
     navigate('/login');
   };
@@ -83,7 +82,7 @@ export function VaultSidebar() {
           </div>
           <ScrollArea className="flex-1">
             <SidebarGroup>
-              <SidebarGroupLabel className="px-3">Vault</SidebarGroupLabel>
+              <SidebarGroupLabel className="px-3 text-2xs font-bold uppercase tracking-widest text-muted-foreground/50">Vault</SidebarGroupLabel>
               <SidebarMenu>
                 {categories.map((cat) => (
                   <SidebarMenuItem key={cat.id}>
@@ -104,7 +103,7 @@ export function VaultSidebar() {
             </SidebarGroup>
             {folders.length > 0 && (
               <SidebarGroup>
-                <SidebarGroupLabel className="px-3">Folders</SidebarGroupLabel>
+                <SidebarGroupLabel className="px-3 text-2xs font-bold uppercase tracking-widest text-muted-foreground/50">Folders</SidebarGroupLabel>
                 <SidebarMenu>
                   {folders.map((folder) => (
                     <SidebarMenuItem key={folder}>
@@ -125,7 +124,7 @@ export function VaultSidebar() {
               </SidebarGroup>
             )}
             <SidebarGroup>
-              <SidebarGroupLabel className="px-3">System</SidebarGroupLabel>
+              <SidebarGroupLabel className="px-3 text-2xs font-bold uppercase tracking-widest text-muted-foreground/50">System</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -184,22 +183,21 @@ export function VaultSidebar() {
                 <span>Password Generator</span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent side="right" align="end" className="w-80 p-0 shadow-2xl border-none">
-              <div className="p-4 border-b border-border font-bold">Quick Generator</div>
+            <PopoverContent side="right" align="end" className="w-80 p-0 shadow-2xl border-none overflow-hidden">
+              <div className="p-4 border-b border-border font-bold bg-secondary/30">Quick Generator</div>
               <GeneratorTool />
             </PopoverContent>
           </Popover>
-          {/* Profile Switcher Section */}
           <Popover>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-3 w-full p-2 bg-secondary/30 rounded-xl border border-border/30 hover:bg-secondary/50 transition-all text-left">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
-                  <UserCircle className="w-5 h-5 text-primary" />
+              <button className="flex items-center gap-3 w-full p-2 bg-secondary/30 rounded-xl border border-border/30 hover:bg-secondary/50 transition-all text-left group">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0 group-hover:bg-primary group-hover:text-white transition-colors">
+                  <UserCircle className="w-5 h-5 text-primary group-hover:text-white" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold truncate">{user?.name || 'Vault User'}</p>
                   <p className="text-[10px] text-muted-foreground truncate uppercase font-extrabold tracking-tighter flex items-center gap-1">
-                    <ShieldCheck className="w-2 h-2" /> Encrypted Session
+                    <ShieldCheck className="w-2 h-2 text-emerald-500" /> Encrypted Session
                   </p>
                 </div>
               </button>
@@ -207,14 +205,14 @@ export function VaultSidebar() {
             <PopoverContent className="w-56 p-2" side="right" align="end">
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-muted-foreground px-2 py-1 uppercase tracking-widest">Profiles</p>
-                <button 
+                <button
                   onClick={handleProfileSwitch}
                   className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-lg transition-colors text-sm font-medium"
                 >
                   <UserPlus className="w-4 h-4" />
                   Switch Profile
                 </button>
-                <button 
+                <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 w-full p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors text-sm font-medium"
                 >

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVaultStore } from '@/lib/store';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { generateTOTP } from '@/lib/totp-utils';
-import { getStrengthData, checkPasswordBreach } from '@/lib/security-utils';
+import { checkPasswordBreach } from '@/lib/security-utils';
 import type { VaultItem } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { ItemForm } from './ItemForm';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  Copy, Edit, ShieldCheck, Check, Laptop, Eye, EyeOff, Mail, Wifi, Terminal, User, MapPin, Phone, Calendar, CreditCard, Globe, ExternalLink
+  Copy, Edit, ShieldCheck, Check, Eye, EyeOff, Mail, Wifi, Terminal, User, MapPin, Phone, Calendar, CreditCard, Globe, ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -51,15 +51,12 @@ export function ItemDetail() {
     setShowPassword(false);
     setCopyState({});
   }, [selectedItemId]);
-
   const copyAllCardInfo = () => {
     if (!item || item.type !== 'card') return;
-    const details = item as any;
-    const text = `Cardholder: ${details.cardholderName}\nNumber: ${details.cardNumber}\nExpiry: ${details.expiryDate}\nCVV: ${details.cvv}`;
+    const text = `Cardholder: ${item.cardholderName || 'N/A'}\nNumber: ${item.cardNumber || 'N/A'}\nExpiry: ${item.expiryDate || 'N/A'}\nCVV: ${item.cvv || 'N/A'}`;
     navigator.clipboard.writeText(text);
     toast.success("All card details copied to clipboard");
   };
-
   const copyToClipboard = (text: string | undefined, label: string) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -139,8 +136,8 @@ export function ItemDetail() {
                   {item.url && (
                     <div className="space-y-2">
                       {renderField('URL', item.url, <Globe className="w-3 h-3" />)}
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full gap-2 text-xs h-9 font-bold"
                         onClick={() => window.open(item.url?.startsWith('http') ? item.url : `https://${item.url}`, '_blank')}
                       >
@@ -161,27 +158,27 @@ export function ItemDetail() {
                       </div>
                       <div className="space-y-4">
                         <div className="text-2xl font-mono tracking-[0.2em]">
-                          {showPassword ? (item as any).cardNumber : maskCardNumber((item as any).cardNumber)}
+                          {showPassword ? item.cardNumber : maskCardNumber(item.cardNumber)}
                         </div>
                         <div className="flex justify-between items-end">
                           <div className="space-y-1">
                             <p className="text-[8px] uppercase tracking-tighter text-slate-500">Cardholder</p>
-                            <p className="text-sm font-bold uppercase">{(item as any).cardholderName || '---'}</p>
+                            <p className="text-sm font-bold uppercase">{item.cardholderName || '---'}</p>
                           </div>
                           <div className="space-y-1 text-right">
                             <p className="text-[8px] uppercase tracking-tighter text-slate-500">Expires</p>
-                            <p className="text-sm font-bold font-mono">{(item as any).expiryDate || '--/--'}</p>
+                            <p className="text-sm font-bold font-mono">{item.expiryDate || '--/--'}</p>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
-                    {renderField('Card Number', (item as any).cardNumber, <CreditCard className="w-3 h-3" />, true)}
-                    {renderField('Cardholder', (item as any).cardholderName, <User className="w-3 h-3" />)}
+                    {renderField('Card Number', item.cardNumber, <CreditCard className="w-3 h-3" />, true)}
+                    {renderField('Cardholder', item.cardholderName, <User className="w-3 h-3" />)}
                     <div className="grid grid-cols-2 gap-3">
-                      {renderField('Expiry', (item as any).expiryDate, <Calendar className="w-3 h-3" />)}
-                      {renderField('CVV', (item as any).cvv, <ShieldCheck className="w-3 h-3" />, true)}
+                      {renderField('Expiry', item.expiryDate, <Calendar className="w-3 h-3" />)}
+                      {renderField('CVV', item.cvv, <ShieldCheck className="w-3 h-3" />, true)}
                     </div>
                   </div>
                   <Button variant="secondary" className="w-full h-11 font-bold gap-2" onClick={copyAllCardInfo}>
@@ -191,8 +188,8 @@ export function ItemDetail() {
               )}
               {item.type === 'passport' && (
                 <>
-                  {renderField('Passport Number', (item as any).passportNumber, <ShieldCheck className="w-3 h-3" />, true)}
-                  {renderField('Issuing Country', (item as any).issuingCountry, <Globe className="w-3 h-3" />)}
+                  {renderField('Passport Number', item.passportNumber, <ShieldCheck className="w-3 h-3" />, true)}
+                  {renderField('Issuing Country', item.issuingCountry, <Globe className="w-3 h-3" />)}
                 </>
               )}
               {item.type === 'wifi' && (
