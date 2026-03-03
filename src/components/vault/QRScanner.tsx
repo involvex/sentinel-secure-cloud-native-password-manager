@@ -13,7 +13,7 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerId = "sentinel-qr-reader";
   const stopScanner = useCallback(async () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       try {
@@ -27,33 +27,36 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
     setScanSuccess(false);
   }, []);
   useEffect(() => {
-    if (isOpen && containerRef.current && containerRef.current.offsetParent !== null && !scannerRef.current) {
-      const html5QrCode = new Html5Qrcode(containerRef.current as HTMLElement);
-      scannerRef.current = html5QrCode;
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      html5QrCode.start(
-        { facingMode: "environment" },
-        config,
-        (decodedText) => {
-          setScanSuccess(true);
-          html5QrCode.pause();
-          setTimeout(() => {
-            onScan(decodedText);
-            stopScanner();
-          }, 800);
-        },
-        () => {
-          // Failure ignored to reduce noise
-        }
-      ).then(() => setIsCameraReady(true))
-       .catch((err) => {
-         console.error("Camera start error:", err);
-         toast.error("Could not access camera. Please check permissions.");
-         onClose();
-       });
+    if (isOpen && !scannerRef.current) {
+      // Use setTimeout to ensure the element is rendered in the DOM before targeting by ID
+      const timer = setTimeout(() => {
+        const html5QrCode = new Html5Qrcode(containerId);
+        scannerRef.current = html5QrCode;
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => {
+            setScanSuccess(true);
+            html5QrCode.pause();
+            setTimeout(() => {
+              onScan(decodedText);
+              stopScanner();
+            }, 800);
+          },
+          () => {
+            // Failure ignored to reduce noise
+          }
+        ).then(() => setIsCameraReady(true))
+         .catch((err) => {
+           console.error("Camera start error:", err);
+           toast.error("Could not access camera. Please check permissions.");
+           onClose();
+         });
+      }, 100);
+      return () => clearTimeout(timer);
     }
     return () => {
-      // Intentional async floating stop is usually fine for cleanup
       void stopScanner();
     };
   }, [isOpen, onClose, onScan, stopScanner]);
@@ -70,7 +73,7 @@ export function QRScanner({ isOpen, onClose, onScan }: QRScannerProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="relative aspect-square w-full bg-black rounded-xl overflow-hidden mt-4 border-2 border-border/50">
-          <div ref={containerRef} className="w-full h-full" />
+          <div id={containerId} className="w-full h-full" />
           {!isCameraReady && !scanSuccess && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
               <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />

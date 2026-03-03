@@ -1,5 +1,8 @@
 import React from "react";
-import { Shield, LayoutGrid, Key, CreditCard, FileText, Star, Plus, Zap, Folder, LogOut, Share2, UserCircle, Trash2 } from "lucide-react";
+import { 
+  Shield, LayoutGrid, Key, CreditCard, FileText, Star, Plus, Zap, Folder, 
+  LogOut, Share2, UserCircle, Trash2, Activity, UserPlus, ShieldCheck 
+} from "lucide-react";
 import { useVaultStore } from "@/lib/store";
 import { useAuthStore } from "@/lib/auth-store";
 import { useQuery } from "@tanstack/react-query";
@@ -48,6 +51,11 @@ export function VaultSidebar() {
   const handleLogout = () => {
     clearAuth();
     navigate('/');
+  };
+  const handleProfileSwitch = () => {
+    // Simulated: return to landing/login for multi-profile selection
+    clearAuth();
+    navigate('/login');
   };
   return (
     <>
@@ -117,6 +125,19 @@ export function VaultSidebar() {
               <SidebarGroupLabel className="px-3">System</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    isActive={activeFilter === 'security'}
+                    onClick={() => setActiveFilter('security')}
+                    className={cn(
+                      "h-10 px-3",
+                      activeFilter === 'security' && "bg-indigo-500/10 text-indigo-600 font-bold"
+                    )}
+                  >
+                    <Activity className="w-4 h-4" />
+                    <span>Security Center</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
                   <SidebarMenuButton onClick={() => setImportExportOpen(true)} className="h-10 px-3">
                     <Share2 className="w-4 h-4" />
                     <span>Import / Export</span>
@@ -165,18 +186,41 @@ export function VaultSidebar() {
               <GeneratorTool />
             </PopoverContent>
           </Popover>
-          <div className="flex items-center gap-3 px-2 py-1 bg-secondary/30 rounded-xl border border-border/30 group">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-              <UserCircle className="w-5 h-5 text-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold truncate">{user?.name || 'Vault User'}</p>
-              <p className="text-[10px] text-muted-foreground truncate uppercase font-extrabold tracking-tighter">Encrypted Session</p>
-            </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={handleLogout}>
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
+          {/* Profile Switcher Section */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="flex items-center gap-3 w-full p-2 bg-secondary/30 rounded-xl border border-border/30 hover:bg-secondary/50 transition-all text-left">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
+                  <UserCircle className="w-5 h-5 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold truncate">{user?.name || 'Vault User'}</p>
+                  <p className="text-[10px] text-muted-foreground truncate uppercase font-extrabold tracking-tighter flex items-center gap-1">
+                    <ShieldCheck className="w-2 h-2" /> Encrypted Session
+                  </p>
+                </div>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-2" side="right" align="end">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground px-2 py-1 uppercase tracking-widest">Profiles</p>
+                <button 
+                  onClick={handleProfileSwitch}
+                  className="flex items-center gap-2 w-full p-2 hover:bg-accent rounded-lg transition-colors text-sm font-medium"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Switch Profile
+                </button>
+                <button 
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 w-full p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors text-sm font-medium"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout Session
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </SidebarFooter>
       </Sidebar>
       <CreateItemDialog />

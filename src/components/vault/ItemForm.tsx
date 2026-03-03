@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, ShieldCheck, X, Info, Camera } from 'lucide-react';
+import { Loader2, ShieldCheck, X, Info, Camera, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,10 +15,12 @@ import { GeneratorTool } from './GeneratorTool';
 import { QRScanner } from './QRScanner';
 import { PasskeyManager } from './PasskeyManager';
 import { VaultItem, VaultItemType } from '@shared/types';
+import { getStrengthData } from '@/lib/security-utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { parseOtpAuthUri } from '@/lib/totp-utils';
+import { cn } from '@/lib/utils';
 const schema = z.object({
   type: z.enum(['login', 'card', 'note', 'passkey']),
   title: z.string().min(1, 'Title is required'),
@@ -59,8 +61,12 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
   });
   const selectedType = watch('type');
   const title = watch('title');
+  const password = watch('password');
   const currentTags = watch('tags') || [];
   const currentPasskeys = watch('passkeys') || [];
+  const strength = useMemo(() => {
+    return password ? getStrengthData(password) : null;
+  }, [password]);
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
       const payload = { ...values, updatedAt: Date.now() };
@@ -148,7 +154,14 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
                 <Input {...register('username')} className="bg-secondary/30" placeholder="Email or Username" />
               </div>
               <div className="space-y-2">
-                <Label>Password</Label>
+                <div className="flex justify-between items-center mb-1">
+                  <Label>Password</Label>
+                  {strength && (
+                    <span className={cn("text-[10px] font-bold px-1 rounded uppercase tracking-tighter text-white", strength.color)}>
+                      {strength.label}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <Input {...register('password')} className="flex-1 bg-secondary/30" type="password" placeholder="••••••••" />
                   <Popover>
@@ -160,14 +173,35 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
                     </PopoverContent>
                   </Popover>
                 </div>
+                {strength && (
+                  <div className="space-y-1.5 mt-2">
+                    <div className="flex gap-1 h-1 w-full bg-secondary rounded-full overflow-hidden">
+                      {[0, 1, 2, 3].map((i) => (
+                        <div 
+                          key={i} 
+                          className={cn(
+                            "flex-1 transition-all duration-300", 
+                            i <= strength.score - 1 ? strength.color : "bg-border"
+                          )} 
+                        />
+                      ))}
+                    </div>
+                    {strength.score < 3 && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <ShieldAlert className="w-3 h-3 text-destructive" />
+                        We recommend a score of 3+ for military-grade security.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Label className="flex-1">Two-Step Verification (TOTP)</Label>
-                  <Button 
-                    type="button" 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
                     className="h-7 text-[10px] font-bold uppercase tracking-tighter gap-1 text-primary hover:bg-primary/10 px-2"
                     onClick={() => setIsScannerOpen(true)}
                   >
@@ -185,10 +219,10 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
                     </Tooltip>
                   </TooltipProvider>
                 </div>
-                <Input 
-                  {...register('totpSecret')} 
-                  className="bg-secondary/30 font-mono text-xs" 
-                  placeholder="e.g. JBSWY3DPEHPK3PXP" 
+                <Input
+                  {...register('totpSecret')}
+                  className="bg-secondary/30 font-mono text-xs"
+                  placeholder="e.g. JBSWY3DPEHPK3PXP"
                 />
               </div>
             </div>

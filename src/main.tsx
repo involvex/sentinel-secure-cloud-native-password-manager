@@ -49,13 +49,13 @@ const router = createBrowserRouter([
 const container = document.getElementById('root');
 if (!container) throw new Error("Root container not found");
 let root: Root;
-// @ts-expect-error - attaching to window for singleton access during Fast Refresh
+// @ts-expect-error - Attaching to window to maintain singleton root instance during development Fast Refresh
 if (window.__REACT_ROOT__) {
-  // @ts-expect-error
+  // @ts-expect-error - Window augmentation for singleton root access
   root = window.__REACT_ROOT__;
 } else {
   root = createRoot(container);
-  // @ts-expect-error
+  // @ts-expect-error - Storing root on window for global persistence in development environment
   window.__REACT_ROOT__ = root;
 }
 root.render(

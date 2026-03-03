@@ -1,12 +1,12 @@
 import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
-import { adjacencyGraphs, dictionary as commonDictionary } from '@zxcvbn-ts/language-common';
-import { dictionary, translations } from '@zxcvbn-ts/language-en';
+import * as zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
+import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en';
 const options = {
-  translations,
-  graphs: adjacencyGraphs,
+  translations: zxcvbnEnPackage.translations,
+  graphs: zxcvbnCommonPackage.adjacencyGraphs,
   dictionary: {
-    ...commonDictionary,
-    ...dictionary,
+    ...zxcvbnCommonPackage.commonDictionary,
+    ...zxcvbnEnPackage.enDictionary,
   },
 };
 zxcvbnOptions.setOptions(options);
@@ -19,12 +19,11 @@ export interface StrengthResult {
   warning?: string;
 }
 export function getStrengthData(password: string): StrengthResult {
-  if (!password || password.length === 0) {
+  if (!password) {
     return { score: 0, label: 'None', color: 'bg-muted', suggestions: [] };
   }
   const result = zxcvbn(password);
-  const rawScore = result.score;
-  const score = (rawScore >= 0 && rawScore <= 4 ? rawScore : 0) as StrengthLevel;
+  const score = result.score as StrengthLevel;
   const mapping: Record<StrengthLevel, { label: string; color: string }> = {
     0: { label: 'Very Weak', color: 'bg-destructive' },
     1: { label: 'Weak', color: 'bg-orange-500' },
@@ -36,24 +35,26 @@ export function getStrengthData(password: string): StrengthResult {
     score,
     label: mapping[score].label,
     color: mapping[score].color,
-    suggestions: result.feedback.suggestions || [],
-    warning: result.feedback.warning || undefined,
+    suggestions: result.feedback.suggestions,
+    warning: result.feedback.warning,
   };
 }
+/**
+ * Simulates a breach check (HIBP style). 
+ * In a real app, this would use a k-Anonymity API with SHA-1 prefixes.
+ */
 export async function checkPasswordBreach(password: string): Promise<{ isBreached: boolean; count: number }> {
   if (!password || password.length < 4) return { isBreached: false, count: 0 };
-  // Simulated breach check for demo purposes
-  const commonPasswords = ['password', '123456', 'qwerty', 'admin', 'sentinel', 'password123'];
-  const normalized = password.toLowerCase().trim();
-  if (commonPasswords.includes(normalized)) {
-    return { isBreached: true, count: 154200 + Math.floor(Math.random() * 5000) };
+  // Deterministic simulation for demo purposes
+  // Common passwords simulate "breached"
+  const commonPasswords = ['password', '123456', 'qwerty', 'admin', 'sentinel'];
+  if (commonPasswords.includes(password.toLowerCase())) {
+    return { isBreached: true, count: Math.floor(Math.random() * 1000000) + 50000 };
   }
-  // Length-based simulation: shorter passwords are more likely to have been breached historically
-  if (password.length < 8) {
-    return { isBreached: true, count: 12 + Math.floor(Math.random() * 88) };
-  }
-  return {
-    isBreached: false,
-    count: 0
+  // Otherwise, use length/complexity to simulate randomness
+  const isSimulatedBreach = password.length < 8;
+  return { 
+    isBreached: isSimulatedBreach, 
+    count: isSimulatedBreach ? Math.floor(Math.random() * 100) : 0 
   };
 }

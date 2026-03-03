@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useVaultStore } from '@/lib/store';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { generateTOTP } from '@/lib/totp-utils';
+import { getStrengthData, checkPasswordBreach } from '@/lib/security-utils';
 import type { VaultItem } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { ItemForm } from './ItemForm';
@@ -12,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { QRDisplay } from './QRDisplay';
 import {
   Copy, Star, Edit, ArrowLeft, ShieldCheck, Fingerprint, Loader2, Folder,
-  Clock, Check, Laptop, Usb, Eye, EyeOff
+  Clock, Check, Laptop, Usb, Eye, EyeOff, AlertTriangle, ShieldAlert, Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,11 +27,22 @@ export function ItemDetail() {
   const [showQR, setShowQR] = useState(false);
   const [copyState, setCopyState] = useState<Record<string, boolean>>({});
   const [totp, setTotp] = useState({ code: '------', secondsRemaining: 30 });
+  const [breachInfo, setBreachInfo] = useState<{ isBreached: boolean; count: number } | null>(null);
   const { data: itemsData } = useQuery({
     queryKey: ['vault-items'],
     queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
   });
   const item = itemsData?.items.find(i => i.id === selectedItemId);
+  const strength = useMemo(() => {
+    return item?.password ? getStrengthData(item.password) : null;
+  }, [item?.password]);
+  useEffect(() => {
+    if (item?.password) {
+      checkPasswordBreach(item.password).then(setBreachInfo);
+    } else {
+      setBreachInfo(null);
+    }
+  }, [item?.password]);
   useEffect(() => {
     if (item?.totpSecret) {
       const updateTotp = () => setTotp(generateTOTP(item.totpSecret!));
@@ -81,6 +93,11 @@ export function ItemDetail() {
     setCopyState(prev => ({ ...prev, [label]: true }));
     toast.success(`${label} copied to clipboard`);
     setTimeout(() => setCopyState(prev => ({ ...prev, [label]: false })), 1500);
+  };
+  const renderPasswordHint = (pwd: string) => {
+    if (!pwd) return '—';
+    if (pwd.length <= 4) return '••••';
+    return `${pwd[0]}••••${pwd[pwd.length - 1]}`;
   };
   if (!item) return (
     <div className="h-full flex flex-col items-center justify-center p-12 text-center bg-background/30">
@@ -171,7 +188,7 @@ export function ItemDetail() {
                         "font-mono tracking-[0.4em] text-lg select-none",
                         !showPassword && "opacity-50"
                       )}>
-                        {showPassword ? item.password : '••••••••'}
+                        {showPassword ? item.password : renderPasswordHint(item.password || '')}
                       </span>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => setShowPassword(!showPassword)} className="rounded-full">
@@ -182,6 +199,34 @@ export function ItemDetail() {
                         </Button>
                       </div>
                     </div>
+                    {strength && (
+                      <div className="mt-4 pt-4 border-t border-border/50">
+                         <div className="flex justify-between items-center mb-2">
+                           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Security Score</span>
+                           <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", strength.color, "text-white")}>{strength.label}</span>
+                         </div>
+                         <div className="flex gap-1 h-1 w-full bg-secondary rounded-full overflow-hidden">
+                           {[0, 1, 2, 3].map((i) => (
+                             <div 
+                               key={i} 
+                               className={cn(
+                                 "flex-1 transition-colors", 
+                                 i <= strength.score - 1 ? strength.color : "bg-border"
+                               )} 
+                             />
+                           ))}
+                         </div>
+                         {strength.warning && <p className="text-[10px] text-destructive mt-2 flex items-center gap-1 font-medium"><AlertTriangle className="w-3 h-3" /> {strength.warning}</p>}
+                         {breachInfo?.isBreached && (
+                           <div className="mt-3 p-2 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2 animate-pulse">
+                             <ShieldAlert className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+                             <p className="text-[10px] text-destructive leading-tight font-bold">
+                               Warning: This password was found in a data breach ({breachInfo.count.toLocaleString()} times). We strongly recommend changing it.
+                             </p>
+                           </div>
+                         )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -193,9 +238,9 @@ export function ItemDetail() {
                   <div className="flex justify-between items-center relative z-10">
                     <Label className="text-xs font-bold uppercase tracking-widest text-primary">2FA Security Token</Label>
                     <div className="flex items-center gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-6 text-[10px] font-bold text-primary px-1.5"
                         onClick={() => setShowQR(true)}
                       >
@@ -249,12 +294,12 @@ export function ItemDetail() {
         </AnimatePresence>
       </div>
       {item && item.totpSecret && (
-        <QRDisplay 
-          isOpen={showQR} 
-          onClose={() => setShowQR(false)} 
-          title={item.title} 
-          username={item.username} 
-          secret={item.totpSecret} 
+        <QRDisplay
+          isOpen={showQR}
+          onClose={() => setShowQR(false)}
+          title={item.title}
+          username={item.username}
+          secret={item.totpSecret}
         />
       )}
     </div>
