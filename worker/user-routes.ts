@@ -12,7 +12,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.post('/api/vault', async (c) => {
     const data = await c.req.json() as VaultItem;
     if (!data.title) return bad(c, 'Title required');
-    if (data.type === 'passkey' && !data.passkeyData) return bad(c, 'Passkey data required');
+    // Support legacy passkeyData or new passkeys array
+    if (data.type === 'passkey') {
+      const hasCreds = (data.passkeys && data.passkeys.length > 0);
+      if (!hasCreds) return bad(c, 'At least one passkey credential is required');
+    }
     const item = { ...data, id: crypto.randomUUID(), updatedAt: Date.now() };
     return ok(c, await VaultItemEntity.create(c.env, item));
   });
@@ -21,10 +25,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const items = await c.req.json() as VaultItem[];
     if (!Array.isArray(items)) return bad(c, 'Expected array of items');
     const results = await Promise.all(items.map(async (item) => {
-      const sanitized = { 
-        ...item, 
-        id: item.id || crypto.randomUUID(), 
-        updatedAt: item.updatedAt || Date.now() 
+      const sanitized = {
+        ...item,
+        id: item.id || crypto.randomUUID(),
+        updatedAt: item.updatedAt || Date.now(),
+        // Migrate legacy single passkey to array if needed
+        passkeys: item.passkeys || []
       };
       return VaultItemEntity.create(c.env, sanitized);
     }));

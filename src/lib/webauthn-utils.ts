@@ -1,6 +1,6 @@
 /**
  * Utility for handling WebAuthn (Passkeys) binary-to-string conversions
- * and browser API interactions.
+ * and browser API interactions with support for platform vs roaming authenticators.
  */
 export function bufferToBase64URL(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -21,14 +21,22 @@ export function base64URLToBuffer(base64url: string): ArrayBuffer {
   }
   return buffer;
 }
-export async function checkWebAuthnSupport(): Promise<boolean> {
-  return (
-    window.PublicKeyCredential !== undefined &&
-    typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function' &&
-    (await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())
-  );
+export async function checkPlatformAuthenticatorSupport(): Promise<boolean> {
+  if (!window.PublicKeyCredential) return false;
+  return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
 }
-export async function registerPasskey(title: string, challenge: string) {
+export interface RegistrationOptions {
+  title: string;
+  challenge: string;
+  attachment?: AuthenticatorAttachment;
+  userVerification?: UserVerificationRequirement;
+}
+export async function registerPasskey({ 
+  title, 
+  challenge, 
+  attachment, 
+  userVerification = 'preferred' 
+}: RegistrationOptions) {
   if (!window.navigator.credentials) {
     throw new Error('WebAuthn not supported in this browser');
   }
@@ -54,7 +62,9 @@ export async function registerPasskey(title: string, challenge: string) {
     attestation: 'none',
     authenticatorSelection: {
       residentKey: 'required',
-      userVerification: 'preferred',
+      requireResidentKey: true,
+      userVerification,
+      authenticatorAttachment: attachment,
     },
   };
   const credential = (await navigator.credentials.create({
@@ -65,20 +75,18 @@ export async function registerPasskey(title: string, challenge: string) {
   return {
     credentialId: bufferToBase64URL(credential.rawId),
     publicKey: bufferToBase64URL(response.getPublicKey()),
-    transports: response.getTransports ? response.getTransports() : [],
+    transports: (response.getTransports ? response.getTransports() : []) as any[],
+    authenticatorType: attachment === 'platform' ? 'platform' : 'cross-platform',
   };
 }
-export async function authenticatePasskey(credentialId: string, challenge: string) {
+export async function authenticatePasskey(credentialIds: string[], challenge: string) {
   const challengeBuffer = base64URLToBuffer(challenge);
-  const credIdBuffer = base64URLToBuffer(credentialId);
   const options: PublicKeyCredentialRequestOptions = {
     challenge: challengeBuffer,
-    allowCredentials: [
-      {
-        id: credIdBuffer,
-        type: 'public-key',
-      },
-    ],
+    allowCredentials: credentialIds.map(id => ({
+      id: base64URLToBuffer(id),
+      type: 'public-key',
+    })),
     userVerification: 'preferred',
     timeout: 60000,
   };

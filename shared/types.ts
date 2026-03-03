@@ -4,11 +4,16 @@ export interface ApiResponse<T = unknown> {
   error?: string;
 }
 export type VaultItemType = 'login' | 'card' | 'note' | 'passkey';
+export type AuthenticatorTransport = 'usb' | 'nfc' | 'ble' | 'internal' | 'hybrid';
+export type AuthenticatorType = 'platform' | 'cross-platform';
 export interface PasskeyData {
+  id: string;
+  label: string;
   credentialId: string;
   publicKey: string;
-  transports?: string[];
-  signCount: number;
+  transports: AuthenticatorTransport[];
+  authenticatorType: AuthenticatorType;
+  lastUsedAt?: number;
   createdAt: number;
 }
 export interface VaultItem {
@@ -22,7 +27,7 @@ export interface VaultItem {
   folder?: string;
   tags?: string[];
   totpSecret?: string;
-  passkeyData?: PasskeyData;
+  passkeys?: PasskeyData[];
   favorite: boolean;
   updatedAt: number;
 }

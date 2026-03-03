@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
   Copy, Star, Edit, ArrowLeft, ShieldCheck, Fingerprint, Loader2, Folder,
-  Clock, Hash, ShieldAlert, Check
+  Clock, Hash, ShieldAlert, Check, Laptop, Usb
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,15 +47,27 @@ export function ItemDetail() {
     }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vault-items'] })
   });
-  const handlePasskeyAuth = async () => {
-    if (!item?.passkeyData) return;
+  const handleAuth = async (credentialId?: string) => {
+    const credIds = credentialId ? [credentialId] : (item?.passkeys?.map(pk => pk.credentialId) || []);
+    if (credIds.length === 0) return;
     setIsAuthenticating(true);
     try {
       const { challenge } = await api<{ challenge: string }>('/api/auth/challenge', { method: 'POST' });
-      await authenticatePasskey(item.passkeyData.credentialId, challenge);
-      toast.success('Hardware verification confirmed');
+      await authenticatePasskey(credIds, challenge);
+      // Update lastUsedAt for the specific key
+      if (credentialId) {
+        const updatedPasskeys = item?.passkeys?.map(pk => 
+          pk.credentialId === credentialId ? { ...pk, lastUsedAt: Date.now() } : pk
+        );
+        await api(`/api/vault/${item?.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ passkeys: updatedPasskeys, updatedAt: Date.now() })
+        });
+        queryClient.invalidateQueries({ queryKey: ['vault-items'] });
+      }
+      toast.success('Identity verified successfully');
     } catch (err) {
-      toast.error('Passkey authentication failed');
+      toast.error('Authentication failed');
     } finally {
       setIsAuthenticating(false);
     }
@@ -102,31 +114,40 @@ export function ItemDetail() {
         <AnimatePresence mode="wait">
           {isEditing ? (
             <motion.div key="edit" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <Button variant="ghost" onClick={() => setIsEditing(false)} className="mb-6"><ArrowLeft className="mr-2 h-4 w-4" /> Cancel Edition</Button>
+              <Button variant="ghost" onClick={() => setIsEditing(false)} className="mb-6"><ArrowLeft className="mr-2 h-4 w-4" /> Cancel Editing</Button>
               <ItemForm initialData={item} onSuccess={() => setIsEditing(false)} onCancel={() => setIsEditing(false)} />
             </motion.div>
           ) : (
             <motion.div key="view" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto space-y-8 pb-12">
-              {item.type === 'passkey' && item.passkeyData && (
-                <div className="p-8 rounded-3xl bg-emerald-500/5 border border-emerald-500/20 text-center space-y-6">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto ring-4 ring-emerald-500/5">
-                    <Fingerprint className="w-8 h-8 text-emerald-500" />
+              {item.type === 'passkey' && item.passkeys && (
+                <div className="space-y-4">
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest ml-2">Hardware-Backed Credentials</Label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {item.passkeys.map((pk) => (
+                      <div key={pk.id} className="p-4 rounded-2xl border bg-emerald-500/5 hover:bg-emerald-500/10 transition-all flex items-center gap-4 group">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                          pk.authenticatorType === 'platform' ? "bg-indigo-500/10 text-indigo-600" : "bg-emerald-500/10 text-emerald-600"
+                        )}>
+                          {pk.authenticatorType === 'platform' ? <Laptop className="w-5 h-5" /> : <Usb className="w-5 h-5" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate">{pk.label}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {pk.lastUsedAt ? `Last verified ${new Date(pk.lastUsedAt).toLocaleDateString()}` : `Added ${new Date(pk.createdAt).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                        <Button
+                          className="btn-gradient h-9 px-4 text-xs font-bold"
+                          onClick={() => handleAuth(pk.credentialId)}
+                          disabled={isAuthenticating}
+                        >
+                          {isAuthenticating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                          Verify
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-bold">Encrypted Passkey</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">Hardware-backed authentication is enabled for this item. Use your biometric or security key to verify.</p>
-                  </div>
-                  <div className="bg-secondary/40 p-4 rounded-xl font-mono text-xs text-muted-foreground break-all border border-border/50">
-                    ID: {item.passkeyData.credentialId}
-                  </div>
-                  <Button
-                    className="w-full h-14 text-lg btn-gradient"
-                    onClick={handlePasskeyAuth}
-                    disabled={isAuthenticating}
-                  >
-                    {isAuthenticating ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ShieldCheck className="w-5 h-5 mr-2" />}
-                    Authenticate with Passkey
-                  </Button>
                 </div>
               )}
               {item.type === 'login' && (
@@ -143,7 +164,7 @@ export function ItemDetail() {
                   <div className="p-5 rounded-2xl border bg-secondary/20 hover:bg-secondary/30 transition-colors group">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Credential</Label>
                     <div className="flex justify-between items-center mt-1">
-                      <span className="font-mono tracking-[0.4em] text-lg select-none">��•••••••</span>
+                      <span className="font-mono tracking-[0.4em] text-lg select-none">••••••••</span>
                       <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.password!, 'Password')} className="rounded-full">
                         {copyState['Password'] ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
                       </Button>
@@ -173,8 +194,8 @@ export function ItemDetail() {
                     Copy 2FA Code
                   </Button>
                   <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-2">
-                    <motion.div 
-                      className="h-full bg-primary" 
+                    <motion.div
+                      className="h-full bg-primary"
                       initial={false}
                       animate={{ width: `${(totp.secondsRemaining / 30) * 100}%` }}
                       transition={{ ease: "linear", duration: 1 }}
@@ -193,7 +214,7 @@ export function ItemDetail() {
               <div className="pt-10 flex flex-col items-center gap-2 border-t text-muted-foreground/40 italic">
                 <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-tighter">
                   <ShieldCheck className="w-3 h-3" />
-                  Military-Grade AES-256 Storage
+                  Zero-Knowledge End-to-End Encryption
                 </div>
                 <div className="text-[10px]">Updated {new Date(item.updatedAt).toLocaleString()}</div>
               </div>
