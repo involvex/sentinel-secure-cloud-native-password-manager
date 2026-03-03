@@ -11,9 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { QRDisplay } from './QRDisplay';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   Copy, Star, Edit, ArrowLeft, ShieldCheck, Fingerprint, Loader2, Folder,
-  Clock, Check, Laptop, Usb, Eye, EyeOff, AlertTriangle, ShieldAlert, Info
+  Clock, Check, Laptop, Usb, Eye, EyeOff, AlertTriangle, ShieldAlert, 
+  Wifi, Terminal, Mail, Shield, User, MapPin, Phone, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,15 +35,10 @@ export function ItemDetail() {
     queryFn: () => api<{ items: VaultItem[] }>('/api/vault')
   });
   const item = itemsData?.items.find(i => i.id === selectedItemId);
-  const strength = useMemo(() => {
-    return item?.password ? getStrengthData(item.password) : null;
-  }, [item?.password]);
+  const strength = useMemo(() => item?.password ? getStrengthData(item.password) : null, [item?.password]);
   useEffect(() => {
-    if (item?.password) {
-      checkPasswordBreach(item.password).then(setBreachInfo);
-    } else {
-      setBreachInfo(null);
-    }
+    if (item?.password) checkPasswordBreach(item.password).then(setBreachInfo);
+    else setBreachInfo(null);
   }, [item?.password]);
   useEffect(() => {
     if (item?.totpSecret) {
@@ -50,258 +47,146 @@ export function ItemDetail() {
       const interval = setInterval(updateTotp, 1000);
       return () => clearInterval(interval);
     }
-    setTotp({ code: '------', secondsRemaining: 30 });
   }, [item?.totpSecret, item?.id]);
   useEffect(() => {
     setIsEditing(false);
     setShowPassword(false);
   }, [selectedItemId]);
-  const toggleFavorite = useMutation({
-    mutationFn: (fav: boolean) => api<VaultItem>(`/api/vault/${item?.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ favorite: fav, updatedAt: Date.now() })
-    }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['vault-items'] })
-  });
-  const handleAuth = async (credentialId?: string) => {
-    const credIds = credentialId ? [credentialId] : (item?.passkeys?.map(pk => pk.credentialId) || []);
-    if (credIds.length === 0) return;
-    setIsAuthenticating(true);
-    try {
-      const { challenge } = await api<{ challenge: string }>('/api/auth/challenge', { method: 'POST' });
-      await authenticatePasskey(credIds, challenge);
-      if (credentialId) {
-        const updatedPasskeys = item?.passkeys?.map(pk =>
-          pk.credentialId === credentialId ? { ...pk, lastUsedAt: Date.now() } : pk
-        );
-        await api(`/api/vault/${item?.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({ passkeys: updatedPasskeys, updatedAt: Date.now() })
-        });
-        queryClient.invalidateQueries({ queryKey: ['vault-items'] });
-      }
-      toast.success('Identity verified successfully');
-    } catch (err) {
-      toast.error('Authentication failed');
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
   const copyToClipboard = (text: string, label: string) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
     setCopyState(prev => ({ ...prev, [label]: true }));
-    toast.success(`${label} copied to clipboard`);
+    toast.success(`${label} copied`);
     setTimeout(() => setCopyState(prev => ({ ...prev, [label]: false })), 1500);
-  };
-  const renderPasswordHint = (pwd: string) => {
-    if (!pwd) return '—';
-    if (pwd.length <= 4) return '••••';
-    return `${pwd[0]}••••${pwd[pwd.length - 1]}`;
   };
   if (!item) return (
     <div className="h-full flex flex-col items-center justify-center p-12 text-center bg-background/30">
-      <div className="w-20 h-20 rounded-3xl bg-secondary/50 flex items-center justify-center mb-6 animate-pulse">
-        <ShieldCheck className="w-10 h-10 text-muted-foreground/20" />
-      </div>
-      <h3 className="text-xl font-bold tracking-tight">Vault Protected</h3>
-      <p className="text-muted-foreground text-sm max-w-xs mt-2">Select an item to view encrypted details. Your keys never leave this device.</p>
+      <ShieldCheck className="w-16 h-16 text-muted-foreground/20 mb-6" />
+      <h3 className="text-xl font-bold">Vault Protected</h3>
+      <p className="text-muted-foreground text-sm mt-2">Select an item to view encrypted details.</p>
     </div>
   );
+  const renderField = (label: string, value: string | undefined, icon?: React.ReactNode, isSecret = false) => {
+    if (!value) return null;
+    return (
+      <div className="p-4 rounded-2xl border bg-secondary/20 hover:bg-secondary/30 transition-colors group">
+        <div className="flex items-center gap-2 mb-1">
+          {icon}
+          <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{label}</Label>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className={cn("font-medium truncate", isSecret && !showPassword && "blur-sm select-none")}>
+            {isSecret && !showPassword ? '••••••••' : value}
+          </span>
+          <div className="flex gap-1">
+            {isSecret && (
+              <Button variant="ghost" size="icon" onClick={() => setShowPassword(!showPassword)} className="h-8 w-8">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={() => copyToClipboard(value, label)} className="h-8 w-8">
+              {copyState[label] ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
   return (
-    <div className="h-full flex flex-col bg-background overflow-hidden selection:bg-primary/20">
+    <div className="h-full flex flex-col bg-background overflow-hidden">
       <header className="p-6 border-b flex justify-between items-center bg-card/5 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-primary-foreground font-bold text-xl shrink-0 shadow-lg shadow-primary/20">
-            {item.type === 'passkey' ? <Fingerprint className="w-6 h-6" /> : item.title[0].toUpperCase()}
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-primary-foreground font-bold text-xl shrink-0">
+            {item.title[0].toUpperCase()}
           </div>
           <div className="min-w-0">
             <h2 className="text-2xl font-bold truncate tracking-tight">{item.title}</h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <Badge variant="secondary" className="text-[10px] uppercase font-black px-1.5 py-0 bg-primary/10 text-primary border-none">{item.type}</Badge>
-              {item.folder && <span className="text-xs text-muted-foreground flex items-center gap-1"><Folder className="w-3 h-3" />{item.folder}</span>}
-            </div>
+            <Badge variant="secondary" className="text-[10px] uppercase px-1.5 py-0 bg-primary/10 text-primary">{item.type}</Badge>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon" onClick={() => toggleFavorite.mutate(!item.favorite)} className={cn("hover:bg-orange-500/10", item.favorite && "text-orange-500")}>
-            <Star className={cn("w-5 h-5 transition-all", item.favorite && "fill-orange-500 scale-110")} />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => setIsEditing(!isEditing)} className="hover:bg-primary/10"><Edit className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => setIsEditing(!isEditing)}><Edit className="w-5 h-5" /></Button>
         </div>
       </header>
       <div className="flex-1 overflow-y-auto p-6 md:p-10">
         <AnimatePresence mode="wait">
           {isEditing ? (
-            <motion.div key="edit" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <Button variant="ghost" onClick={() => setIsEditing(false)} className="mb-6"><ArrowLeft className="mr-2 h-4 w-4" /> Cancel Editing</Button>
+            <motion.div key="edit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ItemForm initialData={item} onSuccess={() => setIsEditing(false)} onCancel={() => setIsEditing(false)} />
             </motion.div>
           ) : (
-            <motion.div key="view" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto space-y-8 pb-12">
-              {item.type === 'passkey' && item.passkeys && (
-                <div className="space-y-4">
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest ml-2">Hardware-Backed Credentials</Label>
-                  <div className="grid grid-cols-1 gap-3">
-                    {item.passkeys.map((pk) => (
-                      <div key={pk.id} className="p-4 rounded-2xl border bg-emerald-500/5 hover:bg-emerald-500/10 transition-all flex items-center gap-4 group">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                          pk.authenticatorType === 'platform' ? "bg-indigo-500/10 text-indigo-600" : "bg-emerald-500/10 text-emerald-600"
-                        )}>
-                          {pk.authenticatorType === 'platform' ? <Laptop className="w-5 h-5" /> : <Usb className="w-5 h-5" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate">{pk.label}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {pk.lastUsedAt ? `Last verified ${new Date(pk.lastUsedAt).toLocaleDateString()}` : `Added ${new Date(pk.createdAt).toLocaleDateString()}`}
-                          </p>
-                        </div>
-                        <Button
-                          className="btn-gradient h-9 px-4 text-xs font-bold"
-                          onClick={() => handleAuth(pk.credentialId)}
-                          disabled={isAuthenticating}
-                        >
-                          {isAuthenticating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
-                          Verify
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="max-w-xl mx-auto space-y-6">
               {item.type === 'login' && (
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="p-5 rounded-2xl border bg-secondary/20 hover:bg-secondary/30 transition-colors group">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">User Identity</Label>
-                    <div className="flex justify-between items-center mt-1">
-                      <span className="font-semibold truncate text-lg">{item.username || '—'}</span>
-                      <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.username!, 'Username')} className="rounded-full">
-                        {copyState['Username'] ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                      </Button>
+                <>
+                  {renderField('Username', item.username, <User className="w-3 h-3" />)}
+                  {renderField('Password', item.password, <ShieldCheck className="w-3 h-3" />, true)}
+                </>
+              )}
+              {item.type === 'wifi' && (
+                <>
+                  {renderField('SSID', item.ssid, <Wifi className="w-3 h-3" />)}
+                  {renderField('WiFi Password', item.wifiPassword, <ShieldCheck className="w-3 h-3" />, true)}
+                  <div className="p-6 rounded-3xl border bg-primary/5 flex flex-col items-center gap-4">
+                    <Label className="text-xs font-bold uppercase text-primary">Share Network</Label>
+                    <div className="bg-white p-3 rounded-xl border">
+                      <QRCodeSVG value={`WIFI:T:WPA;S:${item.ssid};P:${item.wifiPassword};;`} size={160} />
                     </div>
+                    <p className="text-[10px] text-muted-foreground text-center">Scan to connect to {item.ssid}</p>
                   </div>
-                  <div className="p-5 rounded-2xl border bg-secondary/20 hover:bg-secondary/30 transition-colors group">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Credential</Label>
-                    <div className="flex justify-between items-center mt-1">
-                      <span className={cn(
-                        "font-mono tracking-[0.4em] text-lg select-none",
-                        !showPassword && "opacity-50"
-                      )}>
-                        {showPassword ? item.password : renderPasswordHint(item.password || '')}
-                      </span>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => setShowPassword(!showPassword)} className="rounded-full">
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => copyToClipboard(item.password!, 'Password')} className="rounded-full">
-                          {copyState['Password'] ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </div>
-                    {strength && (
-                      <div className="mt-4 pt-4 border-t border-border/50">
-                         <div className="flex justify-between items-center mb-2">
-                           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Security Score</span>
-                           <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded", strength.color, "text-white")}>{strength.label}</span>
-                         </div>
-                         <div className="flex gap-1 h-1 w-full bg-secondary rounded-full overflow-hidden">
-                           {[0, 1, 2, 3].map((i) => (
-                             <div 
-                               key={i} 
-                               className={cn(
-                                 "flex-1 transition-colors", 
-                                 i <= strength.score - 1 ? strength.color : "bg-border"
-                               )} 
-                             />
-                           ))}
-                         </div>
-                         {strength.warning && <p className="text-[10px] text-destructive mt-2 flex items-center gap-1 font-medium"><AlertTriangle className="w-3 h-3" /> {strength.warning}</p>}
-                         {breachInfo?.isBreached && (
-                           <div className="mt-3 p-2 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2 animate-pulse">
-                             <ShieldAlert className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
-                             <p className="text-[10px] text-destructive leading-tight font-bold">
-                               Warning: This password was found in a data breach ({breachInfo.count.toLocaleString()} times). We strongly recommend changing it.
-                             </p>
-                           </div>
-                         )}
-                      </div>
-                    )}
+                </>
+              )}
+              {item.type === 'alias' && (
+                <div className="p-5 rounded-3xl bg-indigo-500/5 border border-indigo-500/10 space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Mail className="w-4 h-4 text-indigo-500" />
+                    <Label className="text-xs font-bold text-indigo-600 uppercase">Secure Email Alias</Label>
                   </div>
+                  <div className="flex justify-between items-center bg-background p-3 rounded-xl border">
+                    <span className="font-mono text-sm">{item.aliasEmail}</span>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(item.aliasEmail!, 'Alias')}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Forwarding all messages to your primary vault address.</p>
                 </div>
               )}
-              {item.totpSecret && (
-                <div className="p-8 rounded-3xl bg-primary/5 border border-primary/20 space-y-6 relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
-                    <Clock className="w-24 h-24" />
-                  </div>
-                  <div className="flex justify-between items-center relative z-10">
-                    <Label className="text-xs font-bold uppercase tracking-widest text-primary">2FA Security Token</Label>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[10px] font-bold text-primary px-1.5"
-                        onClick={() => setShowQR(true)}
-                      >
-                        Show QR
+              {item.type === 'identity' && (
+                <div className="grid grid-cols-1 gap-3">
+                  {renderField('Full Name', item.identityName, <User className="w-3 h-3" />)}
+                  {renderField('Date of Birth', item.dob, <Calendar className="w-3 h-3" />)}
+                  {renderField('Phone', item.phone, <Phone className="w-3 h-3" />)}
+                  {renderField('Address', item.address, <MapPin className="w-3 h-3" />)}
+                </div>
+              )}
+              {item.type === 'ssh' && (
+                <>
+                  {renderField('Host / Server', item.sshHost, <Terminal className="w-3 h-3" />)}
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-2">Private Key</Label>
+                    <div className="p-4 rounded-2xl border bg-slate-950 text-slate-50 font-mono text-[10px] overflow-x-auto whitespace-pre leading-tight">
+                      {showPassword ? item.sshKey : '••••••••••••••••••••••••••••••••'}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowPassword(!showPassword)}>
+                        {showPassword ? <EyeOff className="w-3 h-3 mr-2" /> : <Eye className="w-3 h-3 mr-2" />}
+                        {showPassword ? 'Mask Key' : 'Show Key'}
                       </Button>
-                      <Badge variant="outline" className={cn(
-                        "font-mono bg-background border-primary/20 px-3 transition-colors duration-300",
-                        totp.secondsRemaining < 5 ? "text-destructive border-destructive/50" : "text-primary"
-                      )}>
-                        {totp.secondsRemaining}s
-                      </Badge>
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => copyToClipboard(item.sshKey!, 'SSH Key')}>
+                        <Copy className="w-3 h-3 mr-2" /> Copy Key
+                      </Button>
                     </div>
                   </div>
-                  <div className="text-5xl font-mono font-black text-center tracking-[0.2em] py-4 text-primary relative z-10">
-                    {totp.code.slice(0,3)} {totp.code.slice(3)}
-                  </div>
-                  <Button variant="secondary" className="w-full h-12 bg-primary/10 hover:bg-primary/20 border-none font-bold text-primary relative z-10" onClick={() => copyToClipboard(totp.code, '2FA Code')}>
-                    {copyState['2FA Code'] ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                    Copy 2FA Code
-                  </Button>
-                  <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-2">
-                    <motion.div
-                      className={cn(
-                        "h-full transition-colors duration-300",
-                        totp.secondsRemaining < 5 ? "bg-destructive" : "bg-primary"
-                      )}
-                      initial={false}
-                      animate={{ width: `${(totp.secondsRemaining / 30) * 100}%` }}
-                      transition={{ ease: "linear", duration: 1 }}
-                    />
-                  </div>
-                </div>
+                </>
               )}
               {item.notes && (
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-2">Secure Encrypted Notes</Label>
-                  <div className="p-8 rounded-3xl bg-secondary/10 border border-border/50 whitespace-pre-wrap leading-relaxed text-sm shadow-inner min-h-[120px]">
-                    {item.notes}
-                  </div>
+                <div className="p-6 rounded-3xl bg-secondary/10 border border-border/50 text-sm whitespace-pre-wrap">
+                  {item.notes}
                 </div>
               )}
-              <div className="pt-10 flex flex-col items-center gap-2 border-t text-muted-foreground/40 italic">
-                <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-tighter">
-                  <ShieldCheck className="w-3 h-3" />
-                  Zero-Knowledge End-to-End Encryption
-                </div>
-                <div className="text-[10px]">Updated {new Date(item.updatedAt).toLocaleString()}</div>
-              </div>
-            </motion.div>
+            </div>
           )}
         </AnimatePresence>
       </div>
-      {item && item.totpSecret && (
-        <QRDisplay
-          isOpen={showQR}
-          onClose={() => setShowQR(false)}
-          title={item.title}
-          username={item.username}
-          secret={item.totpSecret}
-        />
-      )}
     </div>
   );
 }

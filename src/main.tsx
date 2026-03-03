@@ -26,36 +26,21 @@ const queryClient = new QueryClient({
   },
 });
 const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <HomePage />,
-    errorElement: <RouteErrorBoundary />,
-  },
-  {
-    path: "/login",
-    element: <LoginPage />,
-    errorElement: <RouteErrorBoundary />,
-  },
+  { path: "/", element: <HomePage />, errorElement: <RouteErrorBoundary /> },
+  { path: "/login", element: <LoginPage />, errorElement: <RouteErrorBoundary /> },
   {
     path: "/dashboard",
-    element: (
-      <AuthGuard>
-        <Dashboard />
-      </AuthGuard>
-    ),
+    element: <AuthGuard><Dashboard /></AuthGuard>,
     errorElement: <RouteErrorBoundary />,
   }
 ]);
 const container = document.getElementById('root');
 if (!container) throw new Error("Root container not found");
 let root: Root;
-// @ts-expect-error - Attaching to window to maintain singleton root instance during development Fast Refresh
 if (window.__REACT_ROOT__) {
-  // @ts-expect-error - Window augmentation for singleton root access
   root = window.__REACT_ROOT__;
 } else {
   root = createRoot(container);
-  // @ts-expect-error - Storing root on window for global persistence in development environment
   window.__REACT_ROOT__ = root;
 }
 root.render(

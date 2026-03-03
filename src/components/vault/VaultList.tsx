@@ -1,5 +1,5 @@
 import React, { useRef, useMemo, useState } from 'react';
-import { Search, ShieldAlert, Star, Fingerprint, Key, CreditCard, FileText, LayoutGrid, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { Search, ShieldAlert, Star, Fingerprint, Key, CreditCard, FileText, LayoutGrid, ArrowUpDown, ChevronDown, Mail, Shield, Wifi, Terminal, ScanFace } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useVaultStore } from '@/lib/store';
 import { useQuery } from '@tanstack/react-query';
@@ -27,6 +27,11 @@ const TypeIcon = ({ type }: { type: VaultItemType }) => {
     case 'login': return <Key className="w-4 h-4" />;
     case 'card': return <CreditCard className="w-4 h-4" />;
     case 'note': return <FileText className="w-4 h-4" />;
+    case 'alias': return <Mail className="w-4 h-4" />;
+    case 'identity': return <Shield className="w-4 h-4" />;
+    case 'wifi': return <Wifi className="w-4 h-4" />;
+    case 'ssh': return <Terminal className="w-4 h-4" />;
+    case 'passport': return <ScanFace className="w-4 h-4" />;
     default: return <Key className="w-4 h-4" />;
   }
 };
@@ -50,6 +55,8 @@ export function VaultList() {
       const matchesSearch = !query ||
         item.title.toLowerCase().includes(query) ||
         item.username?.toLowerCase().includes(query) ||
+        item.ssid?.toLowerCase().includes(query) ||
+        item.aliasEmail?.toLowerCase().includes(query) ||
         item.url?.toLowerCase().includes(query);
       let matchesFilter = true;
       if (activeTag) {
@@ -58,21 +65,20 @@ export function VaultList() {
         matchesFilter = true;
       } else if (activeFilter === 'favorites') {
         matchesFilter = item.favorite;
-      } else if (['login', 'card', 'note', 'passkey'].includes(activeFilter)) {
+      } else if (['login', 'card', 'note', 'passkey', 'alias', 'identity', 'wifi', 'ssh', 'passport'].includes(activeFilter)) {
         matchesFilter = item.type === activeFilter;
       } else {
         matchesFilter = item.folder === activeFilter;
       }
       return matchesSearch && matchesFilter;
     });
-    // Sort logic
     processed.sort((a, b) => {
       if (sortBy === 'recent') return b.updatedAt - a.updatedAt;
       if (sortBy === 'alpha') return a.title.localeCompare(b.title);
-      const aScore = a.password ? getStrengthData(a.password).score : (a.type === 'passkey' ? 5 : 0);
-      const bScore = b.password ? getStrengthData(b.password).score : (b.type === 'passkey' ? 5 : 0);
+      const aScore = a.password ? getStrengthData(a.password).score : (a.type === 'passkey' ? 4 : 0);
+      const bScore = b.password ? getStrengthData(b.password).score : (b.type === 'passkey' ? 4 : 0);
       if (sortBy === 'strength') return aScore - bScore;
-      if (sortBy === 'risk') return aScore - bScore; // Lower score = Higher risk
+      if (sortBy === 'risk') return aScore - bScore;
       return 0;
     });
     return processed;
@@ -83,12 +89,7 @@ export function VaultList() {
     estimateSize: () => 88,
     overscan: 10,
   });
-  const sortLabel = {
-    recent: 'Recent',
-    risk: 'Risk',
-    strength: 'Strength',
-    alpha: 'A-Z'
-  }[sortBy];
+  const sortLabel = { recent: 'Recent', risk: 'Risk', strength: 'Strength', alpha: 'A-Z' }[sortBy];
   return (
     <div className="flex flex-col h-full border-r bg-background/50">
       <div className="p-6 space-y-4">
@@ -129,78 +130,42 @@ export function VaultList() {
             {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
           </div>
         ) : filteredItems.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="h-full flex flex-col items-center justify-center text-center p-10"
-          >
-            <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mb-4">
-              <ShieldAlert className="w-10 h-10 text-muted-foreground/30" />
-            </div>
+          <div className="h-full flex flex-col items-center justify-center text-center p-10">
+            <ShieldAlert className="w-10 h-10 text-muted-foreground/30 mb-4" />
             <p className="text-sm font-bold text-muted-foreground">No matching items</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Try adjusting your filters or search query.</p>
-          </motion.div>
+          </div>
         ) : (
           <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
             {virtualizer.getVirtualItems().map((v) => {
               const item = filteredItems[v.index];
               const isSelected = selectedItemId === item.id;
-              const strengthData = item.password ? getStrengthData(item.password) : null;
+              const subText = item.type === 'alias' ? item.aliasEmail : item.type === 'wifi' ? item.ssid : item.type === 'ssh' ? item.sshHost : item.username || item.url || 'Encrypted Item';
               return (
-                <motion.div
+                <div
                   key={item.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: v.index * 0.02 }}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: `${v.size - 8}px`,
-                    transform: `translateY(${v.start}px)`
-                  }}
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: `${v.size - 8}px`, transform: `translateY(${v.start}px)` }}
                 >
                   <button
                     onClick={() => setSelectedItemId(item.id)}
                     className={cn(
-                      "w-full h-full text-left p-4 rounded-2xl border transition-all flex items-center gap-4 group relative overflow-hidden",
-                      isSelected
-                        ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
-                        : "hover:bg-secondary/60 border-transparent bg-card shadow-sm"
+                      "w-full h-full text-left p-4 rounded-2xl border transition-all flex items-center gap-4 group overflow-hidden",
+                      isSelected ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" : "hover:bg-secondary/60 border-transparent bg-card shadow-sm"
                     )}
                   >
-                    {/* Security Health Indicator Bar */}
-                    {strengthData && !isSelected && (
-                      <div className={cn("absolute left-0 top-0 bottom-0 w-1", strengthData.color)} />
-                    )}
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
-                      isSelected ? "bg-white/20" : "bg-primary/5 text-primary group-hover:bg-primary group-hover:text-white"
-                    )}>
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", isSelected ? "bg-white/20" : "bg-primary/5 text-primary")}>
                       <TypeIcon type={item.type} />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold truncate pr-2 text-sm">{item.title}</span>
-                        <div className="flex items-center gap-1.5">
-                          {item.favorite && <Star className="w-3 h-3 fill-orange-500 text-orange-500 shrink-0" />}
-                          {strengthData && strengthData.score < 2 && !isSelected && (
-                            <ShieldAlert className="w-3 h-3 text-destructive animate-pulse" />
-                          )}
-                        </div>
+                        <span className="font-bold truncate text-sm">{item.title}</span>
+                        {item.favorite && <Star className="w-3 h-3 fill-orange-500 text-orange-500 shrink-0" />}
                       </div>
-                      <div className={cn(
-                        "text-[11px] truncate mt-0.5",
-                        isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
-                      )}>
-                        {item.type === 'passkey' ? (
-                          <span className="flex items-center gap-1 font-medium"><Fingerprint className="w-3 h-3" /> Hardware Key</span>
-                        ) : item.username || item.url || 'Secure Secret'}
+                      <div className={cn("text-[11px] truncate mt-0.5", isSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                        {subText}
                       </div>
                     </div>
                   </button>
-                </motion.div>
+                </div>
               );
             })}
           </div>

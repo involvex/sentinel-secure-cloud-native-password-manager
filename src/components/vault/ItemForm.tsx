@@ -2,47 +2,46 @@ import React, { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, ShieldCheck, X, Info, Camera, ShieldAlert } from 'lucide-react';
+import { Loader2, ShieldCheck, X, Camera, ShieldAlert, Key, CreditCard, Mail, Wifi, Terminal, ScanFace, FileText, User, MapPin, Calendar, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GeneratorTool } from './GeneratorTool';
-import { QRScanner } from './QRScanner';
 import { PasskeyManager } from './PasskeyManager';
 import { VaultItem, VaultItemType } from '@shared/types';
 import { getStrengthData } from '@/lib/security-utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { parseOtpAuthUri } from '@/lib/totp-utils';
 import { cn } from '@/lib/utils';
 const schema = z.object({
-  type: z.enum(['login', 'card', 'note', 'passkey']),
+  type: z.enum(['login', 'card', 'note', 'passkey', 'alias', 'identity', 'wifi', 'ssh', 'passport']),
   title: z.string().min(1, 'Title is required'),
   username: z.string().optional(),
   password: z.string().optional(),
   totpSecret: z.string().optional(),
-  url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  url: z.string().url('Invalid URL').optional().or(z.literal('')),
   notes: z.string().optional(),
   folder: z.string().optional(),
   favorite: z.boolean(),
   tags: z.array(z.string()),
   passkeys: z.array(z.any()).optional(),
+  aliasEmail: z.string().optional(),
+  identityName: z.string().optional(),
+  dob: z.string().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  ssid: z.string().optional(),
+  wifiPassword: z.string().optional(),
+  sshHost: z.string().optional(),
+  sshKey: z.string().optional(),
 });
 type FormValues = z.infer<typeof schema>;
-interface ItemFormProps {
-  initialData?: VaultItem;
-  onSuccess?: () => void;
-  onCancel?: () => void;
-}
-export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
+export function ItemForm({ initialData, onSuccess, onCancel }: { initialData?: VaultItem; onSuccess?: () => void; onCancel?: () => void }) {
   const queryClient = useQueryClient();
-  const [isScannerOpen, setIsScannerOpen] = React.useState(false);
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -50,234 +49,101 @@ export function ItemForm({ initialData, onSuccess, onCancel }: ItemFormProps) {
       title: initialData?.title ?? '',
       username: initialData?.username ?? '',
       password: initialData?.password ?? '',
-      totpSecret: initialData?.totpSecret ?? '',
-      url: initialData?.url ?? '',
-      notes: initialData?.notes ?? '',
-      folder: initialData?.folder ?? '',
       favorite: initialData?.favorite ?? false,
       tags: initialData?.tags ?? [],
-      passkeys: initialData?.passkeys ?? [],
+      ssid: initialData?.ssid ?? '',
+      wifiPassword: initialData?.wifiPassword ?? '',
+      identityName: initialData?.identityName ?? '',
+      dob: initialData?.dob ?? '',
+      phone: initialData?.phone ?? '',
+      address: initialData?.address ?? '',
+      sshHost: initialData?.sshHost ?? '',
+      sshKey: initialData?.sshKey ?? '',
+      aliasEmail: initialData?.aliasEmail ?? (initialData?.type === 'alias' ? initialData.aliasEmail : `sentinel_${Math.random().toString(36).slice(2, 7)}@vault.internal`),
     },
   });
   const selectedType = watch('type');
-  const title = watch('title');
-  const password = watch('password');
-  const currentTags = watch('tags') || [];
-  const currentPasskeys = watch('passkeys') || [];
-  const strength = useMemo(() => {
-    return password ? getStrengthData(password) : null;
-  }, [password]);
   const mutation = useMutation({
-    mutationFn: (values: FormValues) => {
-      const payload = { ...values, updatedAt: Date.now() };
-      if (initialData?.id) {
-        return api<VaultItem>(`/api/vault/${initialData.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-        });
-      }
-      return api<VaultItem>('/api/vault', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vault-items'] });
-      toast.success(initialData?.id ? 'Item updated' : 'Item created');
-      onSuccess?.();
-    },
-    onError: (err: Error) => {
-      toast.error(err.message);
-    }
+    mutationFn: (values: FormValues) => initialData?.id ? api(`/api/vault/${initialData.id}`, { method: 'PUT', body: JSON.stringify(values) }) : api('/api/vault', { method: 'POST', body: JSON.stringify(values) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['vault-items'] }); toast.success('Saved'); onSuccess?.(); },
+    onError: (err: any) => toast.error(err.message)
   });
-  const onSubmit = (data: FormValues) => {
-    if (data.type === 'passkey' && (!data.passkeys || data.passkeys.length === 0)) {
-      toast.error('You must register at least one passkey before saving');
-      return;
-    }
-    mutation.mutate(data);
-  };
-  const handleQRScan = (text: string) => {
-    const info = parseOtpAuthUri(text);
-    if (info) {
-      setValue('totpSecret', info.secret);
-      if (!watch('title') && info.issuer) setValue('title', info.issuer);
-      if (!watch('username') && info.account) setValue('username', info.account);
-      toast.success('2FA details imported from QR');
-    } else {
-      setValue('totpSecret', text);
-      toast.success('Secret imported from QR');
-    }
-    setIsScannerOpen(false);
-  };
+  const types = [
+    { id: 'login', icon: Key, label: 'Login' },
+    { id: 'card', icon: CreditCard, label: 'Card' },
+    { id: 'wifi', icon: Wifi, label: 'WiFi' },
+    { id: 'alias', icon: Mail, label: 'Alias' },
+    { id: 'identity', icon: Shield, label: 'Identity' },
+    { id: 'ssh', icon: Terminal, label: 'SSH Key' },
+    { id: 'passport', icon: ScanFace, label: 'Passport' },
+    { id: 'note', icon: FileText, label: 'Note' },
+  ];
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Item Type</Label>
-              <Select
-                defaultValue={selectedType}
-                onValueChange={(val) => setValue('type', val as VaultItemType)}
-              >
-                <SelectTrigger className="bg-secondary/30">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="login">Login</SelectItem>
-                  <SelectItem value="passkey">Passkey</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="note">Secure Note</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input {...register('title')} placeholder="e.g. GitHub, Google" className="bg-secondary/30" />
-              {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
-            </div>
-          </div>
-          {selectedType === 'passkey' && (
-            <div className="pt-2 border-t mt-4">
-              <PasskeyManager
-                passkeys={currentPasskeys}
-                title={title}
-                onChange={(pk) => setValue('passkeys', pk)}
-              />
-            </div>
-          )}
-          {selectedType === 'login' && (
-            <div className="space-y-4 pt-2 border-t mt-4">
-              <div className="space-y-2">
-                <Label>Username</Label>
-                <Input {...register('username')} className="bg-secondary/30" placeholder="Email or Username" />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center mb-1">
-                  <Label>Password</Label>
-                  {strength && (
-                    <span className={cn("text-[10px] font-bold px-1 rounded uppercase tracking-tighter text-white", strength.color)}>
-                      {strength.label}
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Input {...register('password')} className="flex-1 bg-secondary/30" type="password" placeholder="••••••••" />
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button type="button" variant="outline" size="icon"><ShieldCheck className="w-4 h-4" /></Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0" align="end">
-                      <GeneratorTool onUse={(pw) => setValue('password', pw)} />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                {strength && (
-                  <div className="space-y-1.5 mt-2">
-                    <div className="flex gap-1 h-1 w-full bg-secondary rounded-full overflow-hidden">
-                      {[0, 1, 2, 3].map((i) => (
-                        <div 
-                          key={i} 
-                          className={cn(
-                            "flex-1 transition-all duration-300", 
-                            i <= strength.score - 1 ? strength.color : "bg-border"
-                          )} 
-                        />
-                      ))}
-                    </div>
-                    {strength.score < 3 && (
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <ShieldAlert className="w-3 h-3 text-destructive" />
-                        We recommend a score of 3+ for military-grade security.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label className="flex-1">Two-Step Verification (TOTP)</Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[10px] font-bold uppercase tracking-tighter gap-1 text-primary hover:bg-primary/10 px-2"
-                    onClick={() => setIsScannerOpen(true)}
-                  >
-                    <Camera className="w-3 h-3" />
-                    Scan QR
-                  </Button>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="max-w-xs text-xs">Enter your 2FA secret key (Base32) or an otpauth:// URL. Sentinel will automatically generate codes.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <Input
-                  {...register('totpSecret')}
-                  className="bg-secondary/30 font-mono text-xs"
-                  placeholder="e.g. JBSWY3DPEHPK3PXP"
-                />
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Folder</Label>
-              <Input {...register('folder')} className="bg-secondary/30" placeholder="Personal, Work..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Tags</Label>
-              <Input
-                className="bg-secondary/30"
-                placeholder="Press Enter to add"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const val = e.currentTarget.value.trim().toLowerCase();
-                    if (val && !currentTags.includes(val)) {
-                      setValue('tags', [...currentTags, val]);
-                      e.currentTarget.value = '';
-                    }
-                  }
-                }}
-              />
-              <div className="flex flex-wrap gap-1 mt-2">
-                {currentTags.map(tag => (
-                  <Badge key={tag} variant="secondary" className="gap-1">
-                    {tag}
-                    <X className="w-3 h-3 cursor-pointer" onClick={() => setValue('tags', currentTags.filter(t => t !== tag))} />
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Notes</Label>
-            <Textarea {...register('notes')} className="bg-secondary/30 min-h-[100px]" placeholder="Add any secure notes..." />
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}
-          <Button type="submit" className="btn-gradient" disabled={mutation.isPending}>
-            {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-            {initialData ? 'Update Item' : 'Secure Save'}
+    <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
+      <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 mb-6">
+        {types.map((t) => (
+          <Button
+            key={t.id}
+            type="button"
+            variant={selectedType === t.id ? 'default' : 'outline'}
+            className="flex-col h-16 text-[10px] gap-1 p-0"
+            onClick={() => setValue('type', t.id as VaultItemType)}
+          >
+            <t.icon className="w-4 h-4" /> {t.label}
           </Button>
+        ))}
+      </div>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Title</Label>
+          <Input {...register('title')} placeholder="GitHub, Home Router..." className="bg-secondary/30" />
         </div>
-      </form>
-      {isScannerOpen && (
-        <QRScanner
-          isOpen={isScannerOpen}
-          onClose={() => setIsScannerOpen(false)}
-          onScan={handleQRScan}
-        />
-      )}
-    </div>
+        {selectedType === 'login' && (
+          <>
+            <Input {...register('username')} placeholder="Email/Username" className="bg-secondary/30" />
+            <div className="flex gap-2">
+              <Input {...register('password')} type="password" placeholder="Password" className="bg-secondary/30 flex-1" />
+              <Popover>
+                <PopoverTrigger asChild><Button variant="outline"><ShieldCheck className="w-4 h-4" /></Button></PopoverTrigger>
+                <PopoverContent className="w-80 p-0"><GeneratorTool onUse={(p) => setValue('password', p)} /></PopoverContent>
+              </Popover>
+            </div>
+          </>
+        )}
+        {selectedType === 'wifi' && (
+          <>
+            <Input {...register('ssid')} placeholder="Network Name (SSID)" className="bg-secondary/30" />
+            <Input {...register('wifiPassword')} type="password" placeholder="WiFi Password" className="bg-secondary/30" />
+          </>
+        )}
+        {selectedType === 'alias' && (
+          <Input {...register('aliasEmail')} readOnly className="bg-muted font-mono" />
+        )}
+        {selectedType === 'identity' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input {...register('identityName')} placeholder="Full Name" className="bg-secondary/30" />
+            <Input {...register('dob')} type="date" className="bg-secondary/30" />
+            <Input {...register('phone')} placeholder="Phone Number" className="bg-secondary/30" />
+            <Input {...register('address')} placeholder="Address" className="bg-secondary/30 md:col-span-2" />
+          </div>
+        )}
+        {selectedType === 'ssh' && (
+          <>
+            <Input {...register('sshHost')} placeholder="SSH Hostname/IP" className="bg-secondary/30" />
+            <Textarea {...register('sshKey')} placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" className="bg-secondary/30 font-mono text-xs h-32" />
+          </>
+        )}
+        <div className="space-y-2">
+          <Label>Notes</Label>
+          <Textarea {...register('notes')} className="bg-secondary/30 h-24" placeholder="Encrypted notes..." />
+        </div>
+      </div>
+      <div className="flex justify-end gap-3 pt-6 border-t">
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" className="btn-gradient px-8" disabled={mutation.isPending}>
+          {mutation.isPending ? <Loader2 className="animate-spin mr-2" /> : 'Save Securely'}
+        </Button>
+      </div>
+    </form>
   );
 }

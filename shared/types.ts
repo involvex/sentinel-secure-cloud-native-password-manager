@@ -3,7 +3,7 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
 }
-export type VaultItemType = 'login' | 'card' | 'note' | 'passkey';
+export type VaultItemType = 'login' | 'card' | 'note' | 'passkey' | 'alias' | 'identity' | 'wifi' | 'ssh' | 'passport';
 export type AuthenticatorTransport = 'usb' | 'nfc' | 'ble' | 'internal' | 'hybrid';
 export type AuthenticatorType = 'platform' | 'cross-platform';
 export interface PasskeyData {
@@ -15,6 +15,12 @@ export interface PasskeyData {
   authenticatorType: AuthenticatorType;
   lastUsedAt?: number;
   createdAt: number;
+}
+export interface CustomField {
+  id: string;
+  label: string;
+  value: string;
+  isSecret: boolean;
 }
 export interface VaultItem {
   id: string;
@@ -30,6 +36,18 @@ export interface VaultItem {
   passkeys?: PasskeyData[];
   favorite: boolean;
   updatedAt: number;
+  // Type-specific fields
+  aliasEmail?: string;
+  identityName?: string;
+  address?: string;
+  dob?: string;
+  phone?: string;
+  ssid?: string;
+  wifiPassword?: string;
+  sshHost?: string;
+  sshKey?: string;
+  passportNumber?: string;
+  customFields?: CustomField[];
 }
 export interface User {
   id: string;

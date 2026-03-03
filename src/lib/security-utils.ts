@@ -1,12 +1,12 @@
 import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
-import * as zxcvbnCommonPackage from '@zxcvbn-ts/language-common';
-import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en';
+import { adjacencyGraphs, commonDictionary } from '@zxcvbn-ts/language-common';
+import { dictionary, translations } from '@zxcvbn-ts/language-en';
 const options = {
-  translations: zxcvbnEnPackage.translations,
-  graphs: zxcvbnCommonPackage.adjacencyGraphs,
+  translations,
+  graphs: adjacencyGraphs,
   dictionary: {
-    ...zxcvbnCommonPackage.commonDictionary,
-    ...zxcvbnEnPackage.enDictionary,
+    ...commonDictionary,
+    ...dictionary,
   },
 };
 zxcvbnOptions.setOptions(options);
@@ -39,22 +39,15 @@ export function getStrengthData(password: string): StrengthResult {
     warning: result.feedback.warning,
   };
 }
-/**
- * Simulates a breach check (HIBP style). 
- * In a real app, this would use a k-Anonymity API with SHA-1 prefixes.
- */
 export async function checkPasswordBreach(password: string): Promise<{ isBreached: boolean; count: number }> {
   if (!password || password.length < 4) return { isBreached: false, count: 0 };
-  // Deterministic simulation for demo purposes
-  // Common passwords simulate "breached"
   const commonPasswords = ['password', '123456', 'qwerty', 'admin', 'sentinel'];
   if (commonPasswords.includes(password.toLowerCase())) {
     return { isBreached: true, count: Math.floor(Math.random() * 1000000) + 50000 };
   }
-  // Otherwise, use length/complexity to simulate randomness
   const isSimulatedBreach = password.length < 8;
-  return { 
-    isBreached: isSimulatedBreach, 
-    count: isSimulatedBreach ? Math.floor(Math.random() * 100) : 0 
+  return {
+    isBreached: isSimulatedBreach,
+    count: isSimulatedBreach ? Math.floor(Math.random() * 100) : 0
   };
 }
